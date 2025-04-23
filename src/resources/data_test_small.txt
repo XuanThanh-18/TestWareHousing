@@ -1,0 +1,24 @@
+3 2 4 4 2 20
+MAP_START
+0 0 0 0 0 0
+0 1 1 1 1 0
+0 0 0 0 0 0
+0 1 1 1 1 0
+0 0 0 0 0 0
+0 1 1 1 1 0
+0 0 0 0 0 0
+MAP_END
+Apple 5
+Banana 3
+Orange 4
+Bread 6
+Milk 8
+Coffee 2
+Rice 10
+Pasta 4
+Cereal 3
+Chips 2
+Juice 3
+Water 5
+Vegetables 8
+Fruits 7
