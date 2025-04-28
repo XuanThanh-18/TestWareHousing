@@ -36,65 +36,71 @@ public class WarehouseMap {
         return 1; // Mặc định là không đi được nếu vị trí không hợp lệ
     }
     /**
-     * Tìm điểm tiếp cận gần nhất cho một vị trí trên kệ
+     * Tìm điểm tiếp cận gần nhất cho một vị trí trên kệ, có thể tối ưu dựa trên đích đến
      * @param row Hàng của vị trí trên kệ
      * @param col Cột của vị trí trên kệ
+     * @param targetRow Hàng của vị trí đích (tùy chọn, -1 nếu không có)
+     * @param targetCol Cột của vị trí đích (tùy chọn, -1 nếu không có)
      * @return Mảng int[2] chứa tọa độ [row, col] của điểm tiếp cận
      */
-    public int[] findNearestAccessPoint(int row, int col) {
+    public int[] findNearestAccessPoint(int row, int col, int targetRow, int targetCol) {
         // Nếu vị trí đã đi được, trả về chính nó
         if (isWalkable(row, col)) {
+            System.out.println("Debug: Vị trí [" + row + ", " + col + "] đã đi được, trả về nó");
             return new int[] {row, col};
         }
 
-        // Kiểm tra các hàng kế bên (trên và dưới)
+        System.out.println("Debug: Tìm điểm tiếp cận cho [" + row + ", " + col + "] với đích [" + targetRow + ", " + targetCol + "]");
+
+        // Danh sách các điểm tiếp cận có thể
+        ArrayList<int[]> accessPoints = new ArrayList<>();
+
+        // Kiểm tra hàng trên
         if (row > 0 && isWalkable(row - 1, col)) {
-            // Hàng trên
-            return new int[] {row - 1, col};
-        } else if (row < rows - 1 && isWalkable(row + 1, col)) {
-            // Hàng dưới
-            return new int[] {row + 1, col};
+            int[] point = new int[] {row - 1, col};
+            accessPoints.add(point);
+            System.out.println("Debug: Tìm thấy điểm tiếp cận trên: [" + point[0] + ", " + point[1] + "]");
         }
 
-        // Nếu không tìm thấy điểm tiếp cận trực tiếp, mở rộng tìm kiếm
-        // Có thể sử dụng BFS để tìm điểm đi được gần nhất
-        boolean[][] visited = new boolean[rows][cols];
-        Queue<int[]> queue = new java.util.LinkedList<>();
-        int[][] directions = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}}; // 4 hướng: lên, xuống, trái, phải
+        // Kiểm tra hàng dưới
+        if (row < rows - 1 && isWalkable(row + 1, col)) {
+            int[] point = new int[] {row + 1, col};
+            accessPoints.add(point);
+            System.out.println("Debug: Tìm thấy điểm tiếp cận dưới: [" + point[0] + ", " + point[1] + "]");
+        }
 
-        // Đánh dấu vị trí hiện tại đã thăm
-        visited[row][col] = true;
-        queue.add(new int[] {row, col, 0}); // [row, col, distance]
+        // Nếu không có đích đến hoặc chỉ có một điểm tiếp cận
+        if (targetRow < 0 || targetCol < 0 || accessPoints.size() <= 1) {
+            int[] result = accessPoints.isEmpty() ? new int[] {row, col} : accessPoints.get(0);
+            System.out.println("Debug: Không có đích hoặc chỉ có một điểm tiếp cận, trả về: [" + result[0] + ", " + result[1] + "]");
+            return result;
+        }
 
-        while (!queue.isEmpty()) {
-            int[] current = queue.poll();
-            int r = current[0];
-            int c = current[1];
+        // Nếu có đích đến và nhiều điểm tiếp cận, chọn điểm tối ưu nhất
+        int bestIndex = 0;
+        int minDistance = Integer.MAX_VALUE;
 
-            // Kiểm tra 4 hướng
-            for (int[] dir : directions) {
-                int newRow = r + dir[0];
-                int newCol = c + dir[1];
+        System.out.println("Debug: Đánh giá các điểm tiếp cận để tìm điểm tối ưu...");
+        for (int i = 0; i < accessPoints.size(); i++) {
+            int[] point = accessPoints.get(i);
+            int distance = Math.abs(point[0] - targetRow) + Math.abs(point[1] - targetCol);
+            System.out.println("Debug: Điểm [" + point[0] + ", " + point[1] + "] có khoảng cách đến đích: " + distance);
 
-                // Kiểm tra vị trí mới có hợp lệ không
-                if (newRow >= 0 && newRow < rows && newCol >= 0 && newCol < cols && !visited[newRow][newCol]) {
-                    // Đánh dấu đã thăm
-                    visited[newRow][newCol] = true;
-
-                    // Nếu đi được, đây là điểm tiếp cận gần nhất
-                    if (isWalkable(newRow, newCol)) {
-                        return new int[] {newRow, newCol};
-                    }
-
-                    // Thêm vào queue để tiếp tục tìm kiếm
-                    queue.add(new int[] {newRow, newCol});
-                }
+            if (distance < minDistance) {
+                minDistance = distance;
+                bestIndex = i;
+                System.out.println("Debug: Đây là điểm tốt nhất hiện tại");
             }
         }
 
-        // Nếu không tìm thấy điểm tiếp cận
-        System.out.println("CẢNH BÁO: Không tìm thấy điểm tiếp cận cho vị trí [" + row + ", " + col + "]");
-        return new int[] {row, col}; // Trả về vị trí ban đầu nếu không tìm thấy
+        int[] result = accessPoints.get(bestIndex);
+        System.out.println("Debug: Điểm tiếp cận tối ưu nhất: [" + result[0] + ", " + result[1] + "]");
+        return result;
+    }
+
+    // Overload phương thức để tương thích với code cũ
+    public int[] findNearestAccessPoint(int row, int col) {
+        return findNearestAccessPoint(row, col, -1, -1);
     }
     /**
      * Kiểm tra vị trí có hợp lệ không
@@ -326,9 +332,9 @@ public class WarehouseMap {
         int[] coords1 = positionToCoordinates(pos1);
         int[] coords2 = positionToCoordinates(pos2);
 
-        // Tìm điểm tiếp cận cho điểm bắt đầu và kết thúc
-        int[] accessPoint1 = findNearestAccessPoint(coords1[0], coords1[1]);
-        int[] accessPoint2 = findNearestAccessPoint(coords2[0], coords2[1]);
+        // Tìm điểm tiếp cận tối ưu, có xét đến vị trí đích
+        int[] accessPoint1 = findNearestAccessPoint(coords1[0], coords1[1], coords2[0], coords2[1]);
+        int[] accessPoint2 = findNearestAccessPoint(coords2[0], coords2[1], coords1[0], coords1[1]);
 
         // Tìm đường đi ngắn nhất giữa hai điểm tiếp cận
         ArrayList<int[]> path = findShortestPath(accessPoint1[0], accessPoint1[1],

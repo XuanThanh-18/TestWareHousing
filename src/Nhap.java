@@ -22,73 +22,91 @@ public class Nhap {
         // Khởi tạo DistanceCalculator
         DistanceCalculator.initialize(warehouseMap);
 
-        // Định nghĩa vị trí bắt đầu và kết thúc
-        Position start = new Position(1, 1, 1); // Kệ 1, tầng 1, ô 1
-        Position end = new Position(2, 1, 3);   // Kệ 2, tầng 1, ô 3
+        // Test 1: Đường đi từ lối đi đến lối đi
+        Position walkableStart = new Position(1, 1, 0); // Kệ 1, tầng 1, lối đi
+        Position walkableEnd = new Position(3, 1, 0);   // Kệ 3, tầng 1, lối đi
+        System.out.println("\n=== TEST 1: ĐƯỜNG ĐI TỪ LỐI ĐI ĐẾN LỐI ĐI ===");
+        testPathAndDistance(warehouseMap, walkableStart, walkableEnd);
 
-        System.out.println("\n=== THÔNG TIN VỊ TRÍ ===");
-        System.out.println("Vị trí bắt đầu: " + start);
-        System.out.println("Vị trí kết thúc: " + end);
+        // Test 2: Đường đi từ lối đi đến kệ hàng
+        Position walkableStart2 = new Position(1, 1, 0); // Kệ 1, tầng 1, lối đi
+        Position shelfEnd = new Position(2, 1, 2);      // Kệ 2, tầng 1, ô 2 (trên kệ)
+        System.out.println("\n=== TEST 2: ĐƯỜNG ĐI TỪ LỐI ĐI ĐẾN KỆ HÀNG ===");
+        testPathAndDistance(warehouseMap, walkableStart2, shelfEnd);
 
-        // Chuyển đổi vị trí thành tọa độ trên bản đồ
-        int[] startCoords = warehouseMap.positionToCoordinates(start);
-        int[] endCoords = warehouseMap.positionToCoordinates(end);
+        // Test 3: Đường đi từ kệ hàng đến kệ hàng
+        Position shelfStart = new Position(1, 2, 2); // Kệ 1, tầng 2, ô 2 (trên kệ)
+        Position shelfEnd2 = new Position(3, 2, 3);  // Kệ 3, tầng 2, ô 3 (trên kệ)
+        System.out.println("\n=== TEST 3: ĐƯỜNG ĐI TỪ KỆ HÀNG ĐẾN KỆ HÀNG ===");
+        testPathAndDistance(warehouseMap, shelfStart, shelfEnd2);
 
-        System.out.println("\nTọa độ trên bản đồ:");
-        System.out.println("Bắt đầu: [" + startCoords[0] + ", " + startCoords[1] + "]");
-        System.out.println("Kết thúc: [" + endCoords[0] + ", " + endCoords[1] + "]");
+        // Test 4: Đường đi cùng kệ, khác tầng
+        Position sameShelfDiffTier1 = new Position(2, 1, 3); // Kệ 2, tầng 1, ô 3
+        Position sameShelfDiffTier2 = new Position(2, 2, 3); // Kệ 2, tầng 2, ô 3
+        System.out.println("\n=== TEST 4: ĐƯỜNG ĐI CÙNG KỆ, KHÁC TẦNG ===");
+        testPathAndDistance(warehouseMap, sameShelfDiffTier1, sameShelfDiffTier2);
 
-        // Vẽ đường đi
-        ArrayList<int[]> path = warehouseMap.findShortestPath(startCoords[0], startCoords[1],
-                endCoords[0], endCoords[1]);
+        // Test với các mặt hàng thực tế từ kho hàng
+        if (!Params.WAREHOUSE.isEmpty()) {
+            System.out.println("\n=== TEST VỚI MẶT HÀNG THỰC TẾ ===");
+            // Lấy hai mặt hàng từ kho để test
+            Merchandise item1 = Params.WAREHOUSE.get(0);
+            Merchandise item2 = Params.WAREHOUSE.size() > 1 ? Params.WAREHOUSE.get(1) : Params.WAREHOUSE.get(0);
+
+            System.out.println("Mặt hàng 1: " + item1.getName() + " tại " + item1.getPosition());
+            System.out.println("Mặt hàng 2: " + item2.getName() + " tại " + item2.getPosition());
+
+            // Test đường đi và khoảng cách giữa hai mặt hàng
+            testPathAndDistance(warehouseMap, item1.getPosition(), item2.getPosition());
+
+            // Test khoảng cách từ counter đến mặt hàng
+            Position counter = new Position(0, 0, 0);
+            System.out.println("\n=== TEST ĐƯỜNG ĐI TỪ COUNTER ĐẾN MẶT HÀNG ===");
+            testPathAndDistance(warehouseMap, counter, item1.getPosition());
+        }
+    }
+
+    // Phương thức test đường đi và khoảng cách
+    private static void testPathAndDistance(WarehouseMap warehouseMap, Position pos1, Position pos2) {
+        System.out.println("Vị trí bắt đầu: " + pos1);
+        System.out.println("Vị trí kết thúc: " + pos2);
+
+        int[] coords1 = warehouseMap.positionToCoordinates(pos1);
+        int[] coords2 = warehouseMap.positionToCoordinates(pos2);
+
+        System.out.println("Tọa độ bắt đầu trên bản đồ: [" + coords1[0] + ", " + coords1[1] + "]");
+        System.out.println("Tọa độ kết thúc trên bản đồ: [" + coords2[0] + ", " + coords2[1] + "]");
+
+        // Kiểm tra xem các vị trí có đi được không
+        System.out.println("Vị trí bắt đầu đi được: " + warehouseMap.isWalkable(coords1[0], coords1[1]));
+        System.out.println("Vị trí kết thúc đi được: " + warehouseMap.isWalkable(coords2[0], coords2[1]));
+
+        // Tìm điểm tiếp cận
+        int[] access1 = warehouseMap.findNearestAccessPoint(coords1[0], coords1[1]);
+        int[] access2 = warehouseMap.findNearestAccessPoint(coords2[0], coords2[1]);
+
+        System.out.println("Điểm tiếp cận bắt đầu: [" + access1[0] + ", " + access1[1] + "]");
+        System.out.println("Điểm tiếp cận kết thúc: [" + access2[0] + ", " + access2[1] + "]");
+
+        // Tìm đường đi
+        ArrayList<int[]> path = warehouseMap.findShortestPath(access1[0], access1[1], access2[0], access2[1]);
+
         if (path == null || path.isEmpty()) {
-            System.out.println("Không có đường đi nào để hiển thị.");
+            System.out.println("Không tìm thấy đường đi!");
             return;
         }
 
-        System.out.println("\n=== ĐƯỜNG ĐI ===");
         System.out.println("Số bước đi: " + (path.size() - 1));
-        warehouseMap.printPathOnMap(path);
-
-        // Tính và in khoảng cách thực tế
-        float actualDistance = warehouseMap.calculateActualDistance(start, end);
-        System.out.println("\nKhoảng cách thực tế: " + actualDistance);
-
-        // In khoảng cách Manhattan để so sánh
-        float manhattanDistance = DistanceCalculator.calculateManhattanDistance(start, end);
-        System.out.println("Khoảng cách Manhattan: " + manhattanDistance);
-
-        // Test thêm một số cặp vị trí khác nhau
-        System.out.println("\n=== THÊM VÍ DỤ VỀ KHOẢNG CÁCH ===");
-        testDistance(warehouseMap, new Position(1, 1, 1), new Position(1, 2, 1)); // Cùng kệ, khác tầng
-        testDistance(warehouseMap, new Position(1, 1, 1), new Position(3, 1, 1)); // Khác kệ, cùng ô và tầng
-        testDistance(warehouseMap, new Position(1, 1, 1), new Position(3, 2, 4)); // Khác kệ, tầng và ô
-    }
-
-    // Phương thức kiểm tra khoảng cách giữa hai vị trí
-    private static void testDistance(WarehouseMap warehouseMap, Position pos1, Position pos2) {
-        System.out.println("\nTính khoảng cách từ " + pos1 + " đến " + pos2 + ":");
-
-        // Tính khoảng cách thực tế
-        float actualDistance = warehouseMap.calculateActualDistance(pos1, pos2);
-
-        // Tính khoảng cách Manhattan
-        float manhattanDistance = DistanceCalculator.calculateManhattanDistance(pos1, pos2);
-
-        System.out.println("- Khoảng cách thực tế: " + actualDistance);
-        System.out.println("- Khoảng cách Manhattan: " + manhattanDistance);
-
-        // Tìm đường đi
-        int[] coords1 = warehouseMap.positionToCoordinates(pos1);
-        int[] coords2 = warehouseMap.positionToCoordinates(pos2);
-        ArrayList<int[]> path = warehouseMap.findShortestPath(coords1[0], coords1[1], coords2[0], coords2[1]);
-
-        System.out.println("- Số bước đi: " + (path.size() > 0 ? path.size() - 1 : "Không tìm thấy đường đi"));
 
         // In đường đi
-        if (path != null && !path.isEmpty()) {
-            System.out.println("\nĐường đi từ " + pos1 + " đến " + pos2 + ":");
-            warehouseMap.printPathOnMap(path);
-        }
+        System.out.println("Đường đi:");
+        warehouseMap.printPathOnMap(path);
+
+        // Tính và in khoảng cách
+        float actualDistance = warehouseMap.calculateActualDistance(pos1, pos2);
+        float manhattanDistance = DistanceCalculator.calculateManhattanDistance(pos1, pos2);
+
+        System.out.println("Khoảng cách thực tế: " + actualDistance);
+        System.out.println("Khoảng cách Manhattan: " + manhattanDistance);
     }
 }
