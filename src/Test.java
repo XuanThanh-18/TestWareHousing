@@ -47,7 +47,16 @@ public class Test {
         warehouseMap.printMap();
 
         // Khởi tạo trình tính khoảng cách với bản đồ
+        System.out.println("\nĐang khởi tạo bộ tính khoảng cách...");
         DistanceCalculator.initialize(warehouseMap);
+
+        // Tính trước tất cả khoảng cách (một lần ở đầu chương trình)
+        System.out.println("Đang tính trước các khoảng cách để tối ưu hiệu suất...");
+        long precomputeStartTime = System.currentTimeMillis();
+        DistanceCalculator.precomputeAllDistances(warehousing, counterPosition);
+        long precomputeEndTime = System.currentTimeMillis();
+        System.out.println("Đã hoàn thành tính trước khoảng cách trong " +
+                (precomputeEndTime - precomputeStartTime) + " ms");
 
         // Tạo một cá thể
         Individual individual = new Individual();
@@ -59,6 +68,7 @@ public class Test {
 
         // Thực thi thuật toán PSO-VNS với vị trí counter
         float psoVnsDistance = 0;
+        long startTime = System.currentTimeMillis();
         try {
             psoVnsDistance = individual.solvePsoVns(counterPosition, warehousing);
         } catch (Exception e) {
@@ -66,9 +76,13 @@ public class Test {
             e.printStackTrace();
             return;
         }
+        long endTime = System.currentTimeMillis();
+        long executionTime = endTime - startTime;
 
         System.out.println("\n==================================================");
         System.out.println("TỔNG CHI PHÍ QUÃNG ĐƯỜNG PSO-VNS: " + psoVnsDistance);
+        System.out.println("THỜI GIAN THỰC THI: " + executionTime + " ms");
+        System.out.println("SỐ LƯỢNG KHOẢNG CÁCH ĐÃ TÍNH: " + DistanceCalculator.getCacheSize());
         System.out.println("==================================================");
 
         // In thông tin chi tiết đường đi cho mỗi robot
@@ -207,17 +221,20 @@ public class Test {
         System.out.println("==================================================");
 
         float greedyDistance = 0;
+        long greedyStartTime = System.currentTimeMillis();
         try {
             greedyDistance = individual.greedy(counterPosition, warehousing);
         } catch (Exception e) {
             System.out.println("Lỗi khi thực hiện Greedy: " + e.getMessage());
             e.printStackTrace();
         }
+        long greedyEndTime = System.currentTimeMillis();
+        long greedyExecutionTime = greedyEndTime - greedyStartTime;
 
         System.out.println("\n==================================================");
         System.out.println("KẾT QUẢ SO SÁNH:");
-        System.out.println("- Quãng đường PSO-VNS: " + psoVnsDistance);
-        System.out.println("- Quãng đường Greedy: " + greedyDistance);
+        System.out.println("- Quãng đường PSO-VNS: " + psoVnsDistance + " (thực thi trong " + executionTime + " ms)");
+        System.out.println("- Quãng đường Greedy: " + greedyDistance + " (thực thi trong " + greedyExecutionTime + " ms)");
 
         // Tính phần trăm cải thiện, tránh chia cho 0
         float improvement = 0;
@@ -235,5 +252,8 @@ public class Test {
 
         System.out.println("- Cải thiện: " + String.format("%.2f", improvement) + "%");
         System.out.println("==================================================");
+
+        // In thông tin về cache khoảng cách
+        System.out.println("\nSố khoảng cách đã tính và lưu trong cache: " + DistanceCalculator.getCacheSize());
     }
 }

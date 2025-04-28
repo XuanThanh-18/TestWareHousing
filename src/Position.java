@@ -163,6 +163,16 @@ public class Position {
 
     @Override
     public String toString() {
+
         return "{ " + shelf + " " + tier + " " + slot + " ~ " + x + " " + y + " }";
+    }
+    @Override
+    public int hashCode() {
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + shelf;
+        result = prime * result + tier;
+        result = prime * result + slot;
+        return result;
     }
 }
