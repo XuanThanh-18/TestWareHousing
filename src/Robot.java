@@ -8,6 +8,7 @@ public class Robot {
     String nameRobot;           // Tên/mã định danh của robot
     int capacity = Params.CAPACITY;  // Sức chứa tối đa của robot
     ArrayList<Merchandise> shoppingCart = new ArrayList<>();  // Giỏ hàng chứa các mặt hàng đã lấy
+    private Position startPosition; // Vị trí xuất phát của robot
 
     /**
      * Khởi tạo một robot mới với tên chỉ định
@@ -15,6 +16,33 @@ public class Robot {
      */
     public Robot(String nameRobot) {
         this.nameRobot = nameRobot;
+        this.startPosition = new Position(0, 0, 0); // Mặc định là [0,0]
+    }
+
+    /**
+     * Khởi tạo một robot mới với tên và vị trí xuất phát
+     * @param nameRobot Tên của robot
+     * @param startPosition Vị trí xuất phát
+     */
+    public Robot(String nameRobot, Position startPosition) {
+        this.nameRobot = nameRobot;
+        this.startPosition = startPosition;
+    }
+
+    /**
+     * Đặt vị trí xuất phát cho robot
+     * @param position Vị trí xuất phát mới
+     */
+    public void setStartPosition(Position position) {
+        this.startPosition = position;
+    }
+
+    /**
+     * Lấy vị trí xuất phát của robot
+     * @return Vị trí xuất phát
+     */
+    public Position getStartPosition() {
+        return startPosition;
     }
 
     /**
@@ -68,17 +96,16 @@ public class Robot {
     }
 
     /**
-     * Tính tổng quãng đường đi của robot từ vị trí counter qua tất cả mặt hàng
-     * và quay lại counter
-     * @param counter Vị trí counter
+     * Tính tổng quãng đường đi của robot từ vị trí xuất phát qua tất cả mặt hàng
+     * và quay lại vị trí xuất phát
      * @param warehousing Kho hàng chứa thông tin vị trí
      * @return Tổng quãng đường
      */
-    public float calculateTotalDistance(Position counter, ArrayList<Merchandise> warehousing) {
+    public float calculateTotalDistance(ArrayList<Merchandise> warehousing) {
         if (shoppingCart.isEmpty()) return 0;
 
         float totalDistance = 0;
-        Position currentPosition = counter;
+        Position currentPosition = startPosition;
 
         // Đi đến từng mặt hàng trong giỏ hàng
         for (Merchandise item : shoppingCart) {
@@ -86,17 +113,16 @@ public class Robot {
             Merchandise warehouseItem = findItemInWarehouse(item, warehousing);
             if (warehouseItem != null) {
                 // Tính khoảng cách đến mặt hàng tiếp theo
-                float distance = warehouseItem.distanceTo(new Merchandise("", 0, currentPosition));
+                float distance = DistanceCalculator.calculateDistance(currentPosition, warehouseItem.getPosition());
                 totalDistance += distance;
                 // Cập nhật vị trí hiện tại
                 currentPosition = warehouseItem.getPosition();
             }
         }
 
-        // Quay lại counter
-        Merchandise lastItem = new Merchandise("", 0, currentPosition);
-        Merchandise counterItem = new Merchandise("Counter", 0, counter);
-        totalDistance += counterItem.distanceTo(lastItem);
+        // Quay lại vị trí xuất phát
+        float returnDistance = DistanceCalculator.calculateDistance(currentPosition, startPosition);
+        totalDistance += returnDistance;
 
         return totalDistance;
     }
@@ -125,6 +151,6 @@ public class Robot {
 
     @Override
     public String toString() {
-        return "{" + nameRobot + " " + shoppingCart + "}";
+        return "{" + nameRobot + " start:" + startPosition + " cart:" + shoppingCart + "}";
     }
 }

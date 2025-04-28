@@ -17,8 +17,7 @@ public class Position {
         this.shelf = 0;
         this.tier = 0;
         this.slot = 0;
-        this.x = 0;
-        this.y = 0;
+        calculateCoordinates();
     }
 
     /**
@@ -31,14 +30,17 @@ public class Position {
         this.shelf = shelf;
         this.tier = tier;
         this.slot = slot;
+        calculateCoordinates();
+    }
 
+    /**
+     * Tính toán tọa độ x, y dựa trên vị trí shelf, tier, slot
+     */
+    private void calculateCoordinates() {
         // Tính toán tọa độ x, y dựa trên vị trí shelf, tier, slot
         this.y = slot;
-        if (shelf % 2 != 0) {
+
             this.x = 2 * shelf - 1;
-        } else {
-            this.x = 2 * shelf;
-        }
     }
 
     /**
@@ -55,12 +57,18 @@ public class Position {
         float tierDistance = 0;
         final float TIER_DISTANCE = 0.5f;  // Khoảng cách giữa các tầng
 
-        if (this.shelf == other.shelf && this.slot == other.slot) {
-            // Nếu cùng kệ và cùng ô, chỉ tính khoảng cách theo tầng
-            tierDistance = TIER_DISTANCE * Math.abs(this.tier - other.tier);
-        } else {
-            // Khác kệ hoặc khác ô, tính tổng khoảng cách di chuyển theo tầng
-            tierDistance = TIER_DISTANCE * (this.tier + other.tier - 2);
+        try {
+            if (this.shelf == other.shelf && this.slot == other.slot) {
+                // Nếu cùng kệ và cùng ô, chỉ tính khoảng cách theo tầng
+                tierDistance = TIER_DISTANCE * Math.abs(this.tier - other.tier);
+            } else {
+                // Khác kệ hoặc khác ô, tính tổng khoảng cách di chuyển theo tầng
+                tierDistance = TIER_DISTANCE * Math.max(0, (this.tier + other.tier - 2));
+            }
+        } catch (Exception e) {
+            System.out.println("Lỗi khi tính khoảng cách theo tầng: " + e.getMessage());
+            // Trả về giá trị an toàn
+            tierDistance = 0;
         }
 
         return xDiff + yDiff + tierDistance;
@@ -82,7 +90,16 @@ public class Position {
      * @return Chỉ số trong mảng
      */
     public int toIndex() {
-        return shelf * (Params.TIERS * Params.SLOTS) + tier * Params.SLOTS + slot;
+        try {
+            // Đảm bảo các tham số Params không bằng 0 trước khi tính toán
+            int tiersParam = Math.max(1, Params.TIERS);
+            int slotsParam = Math.max(1, Params.SLOTS);
+
+            return shelf * (tiersParam * slotsParam) + tier * slotsParam + slot;
+        } catch (Exception e) {
+            System.out.println("Lỗi khi tính chỉ số: " + e.getMessage());
+            return 0; // Trả về giá trị mặc định an toàn
+        }
     }
 
     /**
@@ -107,12 +124,7 @@ public class Position {
      */
     public void setShelf(int shelf) {
         this.shelf = shelf;
-        // Cập nhật lại tọa độ x
-        if (shelf % 2 != 0) {
-            this.x = 2 * shelf - 1;
-        } else {
-            this.x = 2 * shelf;
-        }
+        calculateCoordinates();
     }
 
     /**
@@ -146,7 +158,7 @@ public class Position {
     public void setSlot(int slot) {
         this.slot = slot;
         // Cập nhật lại tọa độ y
-        this.y = slot;
+        this.y = this.slot;
     }
 
     @Override

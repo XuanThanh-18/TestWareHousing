@@ -63,7 +63,6 @@ public class Params {
             String line;
             String name;
             int quantity;
-            ArrayList<Merchandise> merchandises = new ArrayList<>();
 
             // Đọc dòng đầu tiên chứa các tham số
             line = br.readLine();
@@ -80,15 +79,29 @@ public class Params {
 
             // Đọc bản đồ kho hàng nếu có
             boolean readingMap = false;
+            boolean readingWarehouse = false;
+            boolean readingRequire = false;
             ArrayList<int[]> mapRows = new ArrayList<>();
 
             while ((line = br.readLine()) != null) {
-                // Kiểm tra nếu bắt đầu hoặc kết thúc phần bản đồ
+                // Kiểm tra các phần của file
                 if (line.trim().equals("MAP_START")) {
                     readingMap = true;
                     continue;
                 } else if (line.trim().equals("MAP_END")) {
                     readingMap = false;
+                    continue;
+                } else if (line.trim().equals("WAREHOUSE_START")) {
+                    readingWarehouse = true;
+                    continue;
+                } else if (line.trim().equals("WAREHOUSE_END")) {
+                    readingWarehouse = false;
+                    continue;
+                } else if (line.trim().equals("REQUIRE_START")) {
+                    readingRequire = true;
+                    continue;
+                } else if (line.trim().equals("REQUIRE_END")) {
+                    readingRequire = false;
                     continue;
                 }
 
@@ -101,14 +114,34 @@ public class Params {
                     }
                     mapRows.add(row);
                 }
-                // Nếu không phải bản đồ, đọc thông tin mặt hàng
-                else {
+                // Nếu đang đọc thông tin kho hàng
+                else if (readingWarehouse) {
                     parts = line.split(" ");
-                    if (parts.length == 2) {
+                    if (parts.length >= 2) {
                         name = parts[0];
                         quantity = Integer.parseInt(parts[1]);
                         Merchandise merchandise = new Merchandise(name, quantity);
-                        merchandises.add(merchandise);
+
+                        // Nếu có thông tin vị trí
+                        if (parts.length >= 5) {
+                            int shelf = Integer.parseInt(parts[2]);
+                            int tier = Integer.parseInt(parts[3]);
+                            int slot = Integer.parseInt(parts[4]);
+                            Position position = new Position(shelf, tier, slot);
+                            merchandise.setPosition(position);
+                        }
+
+                        warehouse.add(merchandise);
+                    }
+                }
+                // Nếu đang đọc thông tin mặt hàng cần lấy
+                else if (readingRequire) {
+                    parts = line.split(" ");
+                    if (parts.length >= 2) {
+                        name = parts[0];
+                        quantity = Integer.parseInt(parts[1]);
+                        Merchandise merchandise = new Merchandise(name, quantity);
+                        require.add(merchandise);
                     }
                 }
             }
@@ -127,20 +160,10 @@ public class Params {
                 createDefaultMap();
             }
 
-            // Phân chia mặt hàng vào kho và danh sách yêu cầu
-            for (int i = 0; i < COUNT && i < merchandises.size(); i++) {
-                warehouse.add(merchandises.get(i));
-            }
-
-            for (int i = COUNT; i < merchandises.size(); i++) {
-                require.add(merchandises.get(i));
-            }
-
             // Kiểm tra số lượng mặt hàng yêu cầu
-            if (require.size() != REQUIRE_MACHANDISE) {
-                System.out.println("Cảnh báo: Dữ liệu đầu vào không đúng. Số lượng mặt hàng yêu cầu không khớp.");
-                System.out.println("Yêu cầu: " + REQUIRE_MACHANDISE + ", Thực tế: " + require.size());
-            }
+            // XÓA CẢNH BÁO VÀ CHỈ CẬP NHẬT THAM SỐ
+            REQUIRE_MACHANDISE = require.size();
+            ROBOTS = Math.max(1, ROBOTS); // Đảm bảo có ít nhất 1 robot
 
             WAREHOUSE = warehouse;
             REQUIRE = require;
@@ -202,7 +225,7 @@ public class Params {
     public static void printWarehouse() {
         System.out.println("Danh sách mặt hàng trong kho:");
         for (Merchandise m : WAREHOUSE) {
-            System.out.println("- " + m.getName() + ": " + m.getQuantity() + " đơn vị");
+            System.out.println("- " + m.getName() + ": " + m.getQuantity() + " đơn vị tại vị trí " + m.getPosition());
         }
     }
 

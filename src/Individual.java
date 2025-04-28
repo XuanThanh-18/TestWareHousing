@@ -5,9 +5,10 @@ import java.util.ArrayList;
  * Sử dụng kết hợp PSO và VNS để tối ưu hóa
  */
 public class Individual {
-    ArrayList<Merchandise> require = Params.REQUIRE;
+    ArrayList<Merchandise> require = Params.REQUIRE; // Sử dụng danh sách từ file input
     ArrayList<Robot> robots;
     private PSO pso;
+    private static final Position DEFAULT_COUNTER_POSITION = new Position(0, 0, 0); // Vị trí mặc định [0,0,0]
 
     /**
      * Khởi tạo một cá thể với các robot
@@ -15,9 +16,12 @@ public class Individual {
     public Individual() {
         robots = new ArrayList<>();
 
-        // Tạo danh sách robot theo tham số
-        for (int i = 0; i < Params.ROBOTS; i++) {
-            robots.add(new Robot(String.valueOf(i + 1)));
+        // Tạo danh sách robot theo tham số, đảm bảo ít nhất 1 robot
+        int numRobots = Math.max(1, Params.ROBOTS);
+        for (int i = 0; i < numRobots; i++) {
+            Robot robot = new Robot(String.valueOf(i + 1));
+            robot.setStartPosition(DEFAULT_COUNTER_POSITION.copy()); // Thiết lập vị trí xuất phát
+            robots.add(robot);
         }
 
         // Khởi tạo PSO với các tham số từ lớp Params
@@ -30,6 +34,16 @@ public class Individual {
 
     /**
      * Giải bài toán tìm đường đi tối ưu bằng PSO-VNS
+     * @param warehousing Kho hàng
+     * @return Tổng chi phí quãng đường
+     */
+    public float solvePsoVns(ArrayList<Merchandise> warehousing) {
+        // Sử dụng vị trí mặc định
+        return solvePsoVns(DEFAULT_COUNTER_POSITION, warehousing);
+    }
+
+    /**
+     * Giải bài toán tìm đường đi tối ưu bằng PSO-VNS
      * @param positionCurrent Vị trí hiện tại (counter)
      * @param warehousing Kho hàng
      * @return Tổng chi phí quãng đường
@@ -37,8 +51,17 @@ public class Individual {
     public float solvePsoVns(Position positionCurrent, ArrayList<Merchandise> warehousing) {
         System.out.println("========= THUẬT TOÁN PSO-VNS =========");
         System.out.println("Yêu cầu lấy " + require.size() + " món hàng");
+        for (Merchandise item : require) {
+            System.out.println("- " + item.getName() + ": " + item.getQuantity() + " đơn vị");
+        }
         System.out.println("Số robot: " + robots.size() + " (sức chứa mỗi robot: " + Params.CAPACITY + ")");
+        System.out.println("Vị trí xuất phát: " + positionCurrent);
         System.out.println("======================================");
+
+        // Đặt vị trí xuất phát cho tất cả robot
+        for (Robot robot : robots) {
+            robot.setStartPosition(positionCurrent.copy());
+        }
 
         // Thực hiện giải thuật PSO-VNS
         System.out.println("\nĐang thực hiện tối ưu hóa...");
@@ -91,6 +114,16 @@ public class Individual {
 
     /**
      * Phương thức greedy đơn giản để so sánh
+     * @param warehousing Kho hàng
+     * @return Tổng chi phí quãng đường
+     */
+    public float greedy(ArrayList<Merchandise> warehousing) {
+        // Sử dụng vị trí mặc định
+        return greedy(DEFAULT_COUNTER_POSITION, warehousing);
+    }
+
+    /**
+     * Phương thức greedy đơn giản để so sánh
      * @param positionCurrent Vị trí hiện tại (counter)
      * @param warehousing Kho hàng
      * @return Tổng chi phí quãng đường
@@ -98,17 +131,32 @@ public class Individual {
     public float greedy(Position positionCurrent, ArrayList<Merchandise> warehousing) {
         System.out.println("\n========= THUẬT TOÁN GREEDY =========");
         System.out.println("Yêu cầu lấy " + require.size() + " món hàng");
+        for (Merchandise item : require) {
+            System.out.println("- " + item.getName() + ": " + item.getQuantity() + " đơn vị");
+        }
         System.out.println("Số robot: " + robots.size() + " (sức chứa mỗi robot: " + Params.CAPACITY + ")");
+        System.out.println("Vị trí xuất phát: " + positionCurrent);
         System.out.println("======================================");
+
+        // Đặt vị trí xuất phát cho tất cả robot
+        for (Robot robot : robots) {
+            robot.setStartPosition(positionCurrent.copy());
+        }
 
         // Xóa sạch giỏ hàng hiện tại
         for (Robot robot : robots) {
             robot.shoppingCart.clear();
         }
 
+        // Kiểm tra nếu không có robot
+        if (robots.size() == 0) {
+            System.out.println("CẢNH BÁO: Không có robot nào để phân bổ mặt hàng!");
+            return 0;
+        }
+
         // Phân bổ đơn giản các mặt hàng cho robot
         for (int i = 0; i < require.size(); i++) {
-            int robotIndex = i % robots.size();
+            int robotIndex = i % robots.size(); // An toàn vì đã kiểm tra robots.size() > 0
             Robot robot = robots.get(robotIndex);
 
             // Kiểm tra sức chứa
@@ -195,17 +243,12 @@ public class Individual {
      * @return Khoảng cách
      */
     private float calculateDistance(Position pos1, Position pos2) {
-        // Khoảng cách Manhattan với khác biệt về tầng
-        int xDiff = Math.abs(pos1.x - pos2.x);
-        int yDiff = Math.abs(pos1.y - pos2.y);
-
-        float tierDistance = 0;
-        if (pos1.getShelf() == pos2.getShelf() && pos1.getSlot() == pos2.getSlot()) {
-            tierDistance = 0.5f * Math.abs(pos1.getTier() - pos2.getTier());
-        } else {
-            tierDistance = 0.5f * (pos1.getTier() + pos2.getTier() - 2);
+        try {
+            // Sử dụng DistanceCalculator để tính khoảng cách
+            return DistanceCalculator.calculateDistance(pos1, pos2);
+        } catch (Exception e) {
+            System.out.println("Lỗi khi tính khoảng cách: " + e.getMessage());
+            return 0; // Trả về khoảng cách mặc định an toàn
         }
-
-        return xDiff + yDiff + tierDistance;
     }
 }

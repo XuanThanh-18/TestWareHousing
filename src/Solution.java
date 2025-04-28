@@ -34,7 +34,11 @@ public class Solution {
         this.robots = new ArrayList<>(other.robots);
         this.robotRoutes = new ArrayList<>();
         for (ArrayList<Merchandise> route : other.robotRoutes) {
-            this.robotRoutes.add(new ArrayList<>(route));
+            ArrayList<Merchandise> newRoute = new ArrayList<>();
+            for (Merchandise merchandise : route) {
+                newRoute.add(merchandise);
+            }
+            this.robotRoutes.add(newRoute);
         }
         this.fitness = other.fitness;
         this.random = new Random();
@@ -46,7 +50,10 @@ public class Solution {
      */
     public void initializeRandomSolution(ArrayList<Merchandise> requiredItems) {
         // Tạo bản sao của danh sách mặt hàng cần lấy để làm việc
-        ArrayList<Merchandise> items = new ArrayList<>(requiredItems);
+        ArrayList<Merchandise> items = new ArrayList<>();
+        for (Merchandise item : requiredItems) {
+            items.add(item);
+        }
         Collections.shuffle(items, random);
 
         // Phân phối các mặt hàng ngẫu nhiên cho các robot, tôn trọng ràng buộc về sức chứa
@@ -218,8 +225,8 @@ public class Solution {
         ArrayList<Merchandise> optimizedRoute = new ArrayList<>();
         ArrayList<Merchandise> remaining = new ArrayList<>(route);
 
-        // Bắt đầu từ counter
-        Position currentPos = new Position(0, 0, -1);
+        // Bắt đầu từ vị trí xuất phát của robot
+        Position currentPos = robots.get(robotIndex).getStartPosition();
 
         while (!remaining.isEmpty()) {
             // Tìm mặt hàng gần nhất từ vị trí hiện tại
@@ -229,7 +236,7 @@ public class Solution {
             for (Merchandise item : remaining) {
                 Merchandise warehouseItem = findInWarehouse(item, warehousing);
                 if (warehouseItem != null) {
-                    float distance = calculateDistance(currentPos, warehouseItem.getPosition());
+                    float distance = DistanceCalculator.calculateDistance(currentPos, warehouseItem.getPosition());
                     if (distance < minDistance) {
                         minDistance = distance;
                         closest = item;
@@ -266,27 +273,6 @@ public class Solution {
             }
         }
         return null;
-    }
-
-    /**
-     * Tính khoảng cách giữa hai vị trí
-     * @param pos1 Vị trí thứ nhất
-     * @param pos2 Vị trí thứ hai
-     * @return Khoảng cách
-     */
-    private float calculateDistance(Position pos1, Position pos2) {
-        // Khoảng cách Manhattan với khác biệt về tầng
-        int xDiff = Math.abs(pos1.x - pos2.x);
-        int yDiff = Math.abs(pos1.y - pos2.y);
-
-        float tierDistance = 0;
-        if (pos1.getShelf() == pos2.getShelf() && pos1.getSlot() == pos2.getSlot()) {
-            tierDistance = 0.5f * Math.abs(pos1.getTier() - pos2.getTier());
-        } else {
-            tierDistance = 0.5f * (pos1.getTier() + pos2.getTier() - 2);
-        }
-
-        return xDiff + yDiff + tierDistance;
     }
 
     @Override

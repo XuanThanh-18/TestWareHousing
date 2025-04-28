@@ -14,28 +14,30 @@ public class WareHousing {
         ArrayList<Merchandise> listMerchandise = Params.WAREHOUSE;
 
         // Tạo counter tại vị trí 0
-        Merchandise counter = new Merchandise("Counter", 0, cellPositionInShelf(0));
+        Merchandise counter = new Merchandise("Counter", 0, new Position(1, 1, 1));
 
-        // Gán vị trí cho mỗi mặt hàng trong kho
-        for (int i = 0; i < listMerchandise.size(); i++) {
+        // Đặt các mặt hàng vào kho với vị trí đã được xác định từ file input
+        for (Merchandise item : listMerchandise) {
             Merchandise merchandise = new Merchandise();
-            merchandise.setName(listMerchandise.get(i).getName());
-            merchandise.setQuantity(listMerchandise.get(i).getQuantity());
+            merchandise.setName(item.getName());
+            merchandise.setQuantity(item.getQuantity());
 
-            // Tính vị trí trong kho
-            Position position = cellPositionInShelf(i + 1);
-            merchandise.setPosition(position);
+            // Sử dụng vị trí đã được chỉ định trong file input
+            if (item.getPosition() != null) {
+                merchandise.setPosition(item.getPosition().copy());
+            } else {
+                System.out.println("Cảnh báo: Mặt hàng " + item.getName() + " không có vị trí, cung cấp vị trí mặc định.");
+                // Đặt vị trí mặc định nếu không có
+                merchandise.setPosition(new Position(1, 1, 1));
+            }
 
             warehousing.add(merchandise);
         }
 
         // In thông tin kho hàng
         System.out.println("Đã thiết lập kho hàng với " + warehousing.size() + " món hàng:");
-        for (int i = 0; i < Math.min(5, warehousing.size()); i++) {
+        for (int i = 0; i < warehousing.size(); i++) {
             System.out.println("- " + warehousing.get(i));
-        }
-        if (warehousing.size() > 5) {
-            System.out.println("... và " + (warehousing.size() - 5) + " món hàng khác");
         }
 
         return warehousing;
@@ -47,13 +49,31 @@ public class WareHousing {
      * @return Vị trí (shelf, tier, slot)
      */
     public static Position cellPositionInShelf(int i) {
-        // Cách tính vị trí (shelf, tier, slot) từ chỉ số i
-        int shelf = (i - 1) / (Params.TIERS * Params.SLOTS);
-        int tier = (i - (shelf * Params.TIERS * Params.SLOTS) - 1) / Params.SLOTS;
-        int slot = i - shelf * Params.TIERS * Params.SLOTS - tier * Params.SLOTS - 1;
+        // Kiểm tra trước khi tính toán để tránh chia cho 0
+        if (Params.TIERS <= 0 || Params.SLOTS <= 0) {
+            System.out.println("CẢNH BÁO: TIERS hoặc SLOTS bằng 0, sử dụng giá trị mặc định.");
+            return new Position(1, 1, 1);
+        }
 
-        Position position = new Position(shelf, tier, slot);
-        return position;
+        // Đảm bảo i luôn lớn hơn hoặc bằng 1
+        i = Math.max(1, i);
+
+        try {
+            // Cách tính vị trí (shelf, tier, slot) từ chỉ số i
+            int shelf = (i - 1) / (Params.TIERS * Params.SLOTS);
+            int tier = (i - (shelf * Params.TIERS * Params.SLOTS) - 1) / Params.SLOTS;
+            int slot = i - shelf * Params.TIERS * Params.SLOTS - tier * Params.SLOTS - 1;
+
+            // Đảm bảo các giá trị luôn lớn hơn hoặc bằng 1
+            shelf = Math.max(1, shelf);
+            tier = Math.max(1, tier);
+            slot = Math.max(1, slot);
+
+            return new Position(shelf, tier, slot);
+        } catch (ArithmeticException e) {
+            System.out.println("Lỗi tính toán vị trí ô: " + e.getMessage());
+            return new Position(1, 1, 1); // Trả về vị trí mặc định an toàn
+        }
     }
 
     /**
@@ -64,6 +84,17 @@ public class WareHousing {
      * @return Chỉ số của ô trong kho
      */
     public static int cellPositionInWarehouse(int shelf, int tier, int slot) {
+        // Kiểm tra trước khi tính toán để tránh lỗi không mong muốn
+        if (Params.SLOTS <= 0 || Params.TIERS <= 0) {
+            System.out.println("CẢNH BÁO: SLOTS hoặc TIERS bằng 0, trả về giá trị mặc định 1.");
+            return 1;
+        }
+
+        // Đảm bảo các giá trị đầu vào hợp lệ
+        shelf = Math.max(0, shelf);
+        tier = Math.max(0, tier);
+        slot = Math.max(0, slot);
+
         return shelf * (Params.SLOTS * Params.TIERS) + tier * Params.SLOTS + slot + 1;
     }
 

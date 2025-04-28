@@ -414,14 +414,16 @@ public class VNS {
      */
     private double evaluateFitness(Solution solution, ArrayList<Merchandise> warehousing) {
         double totalDistance = 0;
-        Position counterPosition = new Position(0, 0, -1); // Giả sử counter ở vị trí (0,0,-1)
 
         for (int i = 0; i < solution.getRobotRoutes().size(); i++) {
             ArrayList<Merchandise> route = solution.getRobotRoutes().get(i);
             if (route.isEmpty()) continue;
 
-            // Bắt đầu từ counter
-            Position currentPosition = counterPosition;
+            Robot robot = solution.getRobots().get(i);
+            Position startPosition = robot.getStartPosition(); // Lấy vị trí xuất phát của robot
+
+            // Bắt đầu từ vị trí xuất phát
+            Position currentPosition = startPosition;
 
             // Tính khoảng cách cho mỗi mặt hàng trong tuyến đường
             for (Merchandise merchandise : route) {
@@ -435,8 +437,8 @@ public class VNS {
                 }
             }
 
-            // Quay lại counter
-            totalDistance += DistanceCalculator.calculateDistance(currentPosition, counterPosition);
+            // Quay lại vị trí xuất phát
+            totalDistance += DistanceCalculator.calculateDistance(currentPosition, startPosition);
         }
 
         return totalDistance;

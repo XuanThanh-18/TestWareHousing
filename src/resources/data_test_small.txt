@@ -1,4 +1,4 @@
-3 2 4 4 2 20
+3 2 4 4 2 25
 MAP_START
 0 0 0 0 0 0
 0 1 1 1 1 0
@@ -8,17 +8,21 @@ MAP_START
 0 1 1 1 1 0
 0 0 0 0 0 0
 MAP_END
-Apple 5
-Banana 3
-Orange 4
-Bread 6
-Milk 8
-Coffee 2
-Rice 10
-Pasta 4
-Cereal 3
-Chips 2
-Juice 3
-Water 5
-Vegetables 8
-Fruits 7
+WAREHOUSE_START
+Laptop 8 2 1 3
+Smartphone 5 1 1 2
+Headphones 3 1 2 1
+Keyboard 4 2 1 1
+Mouse 2 1 1 3
+Monitor 10 2 1 2
+Printer 7 3 1 2
+Scanner 6 1 2 1
+Camera 4 2 2 3
+Speakers 3 1 1 2
+WAREHOUSE_END
+REQUIRE_START
+Laptop 3
+Mouse 1
+Camera 2
+Printer 5
+REQUIRE_END

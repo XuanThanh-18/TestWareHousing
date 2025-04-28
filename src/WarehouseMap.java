@@ -9,9 +9,9 @@ import java.util.Queue;
  * 1: Ô kệ hàng (không đi được)
  */
 public class WarehouseMap {
-    private int[][] map;
-    private int rows;
-    private int cols;
+    private final int[][] map;
+    private final int rows;
+    private final int cols;
 
     /**
      * Khởi tạo bản đồ từ ma trận
@@ -53,7 +53,7 @@ public class WarehouseMap {
      * @return true nếu đi được, false nếu không
      */
     public boolean isWalkable(int row, int col) {
-        return isValidPosition(row, col) && map[row][col] == 0;
+        return getCell(row, col) == 0;
     }
 
     /**
@@ -63,7 +63,7 @@ public class WarehouseMap {
      */
     public int[] positionToCoordinates(Position position) {
         // Mỗi kệ chiếm 2 dòng (một cho lối đi, một cho kệ)
-        int row = position.getShelf() * 2 + 1; // kệ nằm ở dòng lẻ
+        int row = (position.getShelf()-1) * 2 + 1; // kệ nằm ở dòng lẻ
         int col = position.getSlot();
 
         return new int[] {row, col};
@@ -76,7 +76,7 @@ public class WarehouseMap {
      * @return Vị trí trong kho
      */
     public Position coordinatesToPosition(int row, int col) {
-        int shelf = row / 2;
+        int shelf = (row / 2) + 1;
         int tier = 0; // Mặc định tier là 0 vì không thể xác định từ ma trận 2D
         int slot = col;
 
