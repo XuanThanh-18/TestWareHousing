@@ -81,9 +81,9 @@ public class Nhap {
         System.out.println("Vị trí bắt đầu đi được: " + warehouseMap.isWalkable(coords1[0], coords1[1]));
         System.out.println("Vị trí kết thúc đi được: " + warehouseMap.isWalkable(coords2[0], coords2[1]));
 
-        // Tìm điểm tiếp cận
-        int[] access1 = warehouseMap.findNearestAccessPoint(coords1[0], coords1[1]);
-        int[] access2 = warehouseMap.findNearestAccessPoint(coords2[0], coords2[1]);
+        // Tìm điểm tiếp cận - truyền vị trí đích để tối ưu
+        int[] access1 = warehouseMap.findNearestAccessPoint(coords1[0], coords1[1], coords2[0], coords2[1]);
+        int[] access2 = warehouseMap.findNearestAccessPoint(coords2[0], coords2[1], coords1[0], coords1[1]);
 
         System.out.println("Điểm tiếp cận bắt đầu: [" + access1[0] + ", " + access1[1] + "]");
         System.out.println("Điểm tiếp cận kết thúc: [" + access2[0] + ", " + access2[1] + "]");

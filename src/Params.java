@@ -120,6 +120,8 @@ public class Params {
                     if (parts.length >= 2) {
                         name = parts[0];
                         quantity = Integer.parseInt(parts[1]);
+
+                        // Tạo một mặt hàng mới
                         Merchandise merchandise = new Merchandise(name, quantity);
 
                         // Nếu có thông tin vị trí
@@ -131,7 +133,25 @@ public class Params {
                             merchandise.setPosition(position);
                         }
 
-                        warehouse.add(merchandise);
+                        // Kiểm tra xem sản phẩm đã tồn tại chưa
+                        boolean found = false;
+                        for (Merchandise existing : warehouse) {
+                            if (existing.getName().equals(name)) {
+                                // Nếu đã tồn tại, thêm vị trí thay thế
+                                if (merchandise.getPosition() != null) {
+                                    existing.addAlternativePosition(merchandise.getPosition().copy());
+                                }
+                                // Cộng dồn số lượng
+                                existing.setQuantity(existing.getQuantity() + quantity);
+                                found = true;
+                                break;
+                            }
+                        }
+
+                        // Nếu là sản phẩm mới, thêm vào danh sách
+                        if (!found) {
+                            warehouse.add(merchandise);
+                        }
                     }
                 }
                 // Nếu đang đọc thông tin mặt hàng cần lấy
@@ -140,8 +160,22 @@ public class Params {
                     if (parts.length >= 2) {
                         name = parts[0];
                         quantity = Integer.parseInt(parts[1]);
-                        Merchandise merchandise = new Merchandise(name, quantity);
-                        require.add(merchandise);
+
+                        // Kiểm tra xem có đủ số lượng không
+                        boolean sufficientQuantity = false;
+                        for (Merchandise item : warehouse) {
+                            if (item.getName().equals(name) && item.getQuantity() >= quantity) {
+                                sufficientQuantity = true;
+                                break;
+                            }
+                        }
+
+                        if (sufficientQuantity) {
+                            Merchandise merchandise = new Merchandise(name, quantity);
+                            require.add(merchandise);
+                        } else {
+                            System.out.println("Cảnh báo: Không đủ số lượng cho sản phẩm " + name);
+                        }
                     }
                 }
             }

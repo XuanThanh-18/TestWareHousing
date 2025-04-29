@@ -232,14 +232,20 @@ public class Solution {
             // Tìm mặt hàng gần nhất từ vị trí hiện tại
             Merchandise closest = null;
             float minDistance = Float.MAX_VALUE;
+            Position bestPosition = null;
 
             for (Merchandise item : remaining) {
                 Merchandise warehouseItem = findInWarehouse(item, warehousing);
                 if (warehouseItem != null) {
-                    float distance = DistanceCalculator.calculateDistance(currentPos, warehouseItem.getPosition());
-                    if (distance < minDistance) {
-                        minDistance = distance;
-                        closest = item;
+                    // Xét tất cả vị trí có thể của mặt hàng
+                    ArrayList<Position> allPositions = warehouseItem.getAllPositions();
+                    for (Position pos : allPositions) {
+                        float distance = DistanceCalculator.calculateDistance(currentPos, pos);
+                        if (distance < minDistance) {
+                            minDistance = distance;
+                            closest = item;
+                            bestPosition = pos;
+                        }
                     }
                 }
             }
@@ -249,10 +255,7 @@ public class Solution {
                 remaining.remove(closest);
 
                 // Cập nhật vị trí hiện tại
-                Merchandise warehouseItem = findInWarehouse(closest, warehousing);
-                if (warehouseItem != null) {
-                    currentPos = warehouseItem.getPosition();
-                }
+                currentPos = bestPosition;
             }
         }
 

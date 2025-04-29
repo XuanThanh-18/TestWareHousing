@@ -35,73 +35,99 @@ public class WarehouseMap {
         }
         return 1; // Mặc định là không đi được nếu vị trí không hợp lệ
     }
+
     /**
-     * Tìm điểm tiếp cận gần nhất cho một vị trí trên kệ, có thể tối ưu dựa trên đích đến
-     * @param row Hàng của vị trí trên kệ
-     * @param col Cột của vị trí trên kệ
-     * @param targetRow Hàng của vị trí đích (tùy chọn, -1 nếu không có)
-     * @param targetCol Cột của vị trí đích (tùy chọn, -1 nếu không có)
+     * Tìm điểm tiếp cận tối ưu cho một vị trí, có xét đến vị trí hiện tại của robot
+     * @param row Hàng của vị trí cần tìm điểm tiếp cận
+     * @param col Cột của vị trí cần tìm điểm tiếp cận
+     * @param currentRow Hàng của vị trí hiện tại của robot (hoặc -1 nếu không có)
+     * @param currentCol Cột của vị trí hiện tại của robot (hoặc -1 nếu không có)
+     * @param targetRow Hàng của vị trí đích (hoặc -1 nếu không có)
+     * @param targetCol Cột của vị trí đích (hoặc -1 nếu không có)
      * @return Mảng int[2] chứa tọa độ [row, col] của điểm tiếp cận
      */
-    public int[] findNearestAccessPoint(int row, int col, int targetRow, int targetCol) {
+    public int[] findOptimalAccessPoint(int row, int col, int currentRow, int currentCol, int targetRow, int targetCol) {
         // Nếu vị trí đã đi được, trả về chính nó
         if (isWalkable(row, col)) {
-            System.out.println("Debug: Vị trí [" + row + ", " + col + "] đã đi được, trả về nó");
             return new int[] {row, col};
         }
-
-        System.out.println("Debug: Tìm điểm tiếp cận cho [" + row + ", " + col + "] với đích [" + targetRow + ", " + targetCol + "]");
 
         // Danh sách các điểm tiếp cận có thể
         ArrayList<int[]> accessPoints = new ArrayList<>();
 
-        // Kiểm tra hàng trên
-        if (row > 0 && isWalkable(row - 1, col)) {
-            int[] point = new int[] {row - 1, col};
-            accessPoints.add(point);
-            System.out.println("Debug: Tìm thấy điểm tiếp cận trên: [" + point[0] + ", " + point[1] + "]");
-        }
-
-        // Kiểm tra hàng dưới
-        if (row < rows - 1 && isWalkable(row + 1, col)) {
-            int[] point = new int[] {row + 1, col};
-            accessPoints.add(point);
-            System.out.println("Debug: Tìm thấy điểm tiếp cận dưới: [" + point[0] + ", " + point[1] + "]");
-        }
-
-        // Nếu không có đích đến hoặc chỉ có một điểm tiếp cận
-        if (targetRow < 0 || targetCol < 0 || accessPoints.size() <= 1) {
-            int[] result = accessPoints.isEmpty() ? new int[] {row, col} : accessPoints.get(0);
-            System.out.println("Debug: Không có đích hoặc chỉ có một điểm tiếp cận, trả về: [" + result[0] + ", " + result[1] + "]");
-            return result;
-        }
-
-        // Nếu có đích đến và nhiều điểm tiếp cận, chọn điểm tối ưu nhất
-        int bestIndex = 0;
-        int minDistance = Integer.MAX_VALUE;
-
-        System.out.println("Debug: Đánh giá các điểm tiếp cận để tìm điểm tối ưu...");
-        for (int i = 0; i < accessPoints.size(); i++) {
-            int[] point = accessPoints.get(i);
-            int distance = Math.abs(point[0] - targetRow) + Math.abs(point[1] - targetCol);
-            System.out.println("Debug: Điểm [" + point[0] + ", " + point[1] + "] có khoảng cách đến đích: " + distance);
-
-            if (distance < minDistance) {
-                minDistance = distance;
-                bestIndex = i;
-                System.out.println("Debug: Đây là điểm tốt nhất hiện tại");
+        // Kiểm tra các điểm xung quanh
+        int[][] directions = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}}; // trên, dưới, trái, phải
+        for (int[] dir : directions) {
+            int newRow = row + dir[0];
+            int newCol = col + dir[1];
+            if (isValidPosition(newRow, newCol) && isWalkable(newRow, newCol)) {
+                accessPoints.add(new int[] {newRow, newCol});
             }
         }
 
-        int[] result = accessPoints.get(bestIndex);
-        System.out.println("Debug: Điểm tiếp cận tối ưu nhất: [" + result[0] + ", " + result[1] + "]");
-        return result;
+        if (accessPoints.isEmpty()) {
+            // Nếu không tìm thấy điểm tiếp cận, trả về vị trí ban đầu
+            return new int[] {row, col};
+        }
+
+        if (accessPoints.size() == 1) {
+            // Nếu chỉ có một điểm tiếp cận, trả về điểm đó
+            return accessPoints.get(0);
+        }
+
+        // Nếu có nhiều điểm tiếp cận, chọn điểm tối ưu
+        int bestIndex = 0;
+        float bestScore = Float.MAX_VALUE;
+
+        for (int i = 0; i < accessPoints.size(); i++) {
+            int[] point = accessPoints.get(i);
+
+            // Tính khoảng cách từ vị trí hiện tại đến điểm tiếp cận
+            float distFromCurrent = 0;
+            if (currentRow >= 0 && currentCol >= 0) {
+                distFromCurrent = Math.abs(point[0] - currentRow) + Math.abs(point[1] - currentCol);
+            }
+
+            // Tính khoảng cách từ điểm tiếp cận đến đích (nếu có)
+            float distToTarget = 0;
+            if (targetRow >= 0 && targetCol >= 0) {
+                distToTarget = Math.abs(point[0] - targetRow) + Math.abs(point[1] - targetCol);
+            }
+
+            // Điểm số tổng hợp (ưu tiên điểm tiếp cận gần với vị trí hiện tại)
+            float score = distFromCurrent * 0.7f + distToTarget * 0.3f;
+
+            if (score < bestScore) {
+                bestScore = score;
+                bestIndex = i;
+            }
+        }
+
+        return accessPoints.get(bestIndex);
     }
 
-    // Overload phương thức để tương thích với code cũ
+    /**
+     * Phương thức tương thích ngược để giữ khả năng hoạt động với mã cũ
+     * @param row Hàng của vị trí trên kệ
+     * @param col Cột của vị trí trên kệ
+     * @return Mảng int[2] chứa tọa độ [row, col] của điểm tiếp cận
+     */
     public int[] findNearestAccessPoint(int row, int col) {
-        return findNearestAccessPoint(row, col, -1, -1);
+        return findOptimalAccessPoint(row, col, -1, -1, -1, -1);
     }
+
+    /**
+     * Phương thức tương thích ngược với phiên bản cũ có tham số đích
+     * @param row Hàng của vị trí trên kệ
+     * @param col Cột của vị trí trên kệ
+     * @param targetRow Hàng của vị trí đích
+     * @param targetCol Cột của vị trí đích
+     * @return Mảng int[2] chứa tọa độ [row, col] của điểm tiếp cận
+     */
+    public int[] findNearestAccessPoint(int row, int col, int targetRow, int targetCol) {
+        return findOptimalAccessPoint(row, col, -1, -1, targetRow, targetCol);
+    }
+
     /**
      * Kiểm tra vị trí có hợp lệ không
      * @param row Hàng
@@ -325,16 +351,25 @@ public class WarehouseMap {
      * Tính khoảng cách thực tế giữa hai vị trí trên bản đồ (theo đường đi thực)
      * @param pos1 Vị trí bắt đầu
      * @param pos2 Vị trí kết thúc
+     * @param currentPos Vị trí hiện tại của robot (có thể là null)
      * @return Khoảng cách thực tế (số bước đi)
      */
-    public float calculateActualDistance(Position pos1, Position pos2) {
+    public float calculateActualDistance(Position pos1, Position pos2, Position currentPos) {
         // Chuyển đổi từ Position sang tọa độ 2D
         int[] coords1 = positionToCoordinates(pos1);
         int[] coords2 = positionToCoordinates(pos2);
 
-        // Tìm điểm tiếp cận tối ưu, có xét đến vị trí đích
-        int[] accessPoint1 = findNearestAccessPoint(coords1[0], coords1[1], coords2[0], coords2[1]);
-        int[] accessPoint2 = findNearestAccessPoint(coords2[0], coords2[1], coords1[0], coords1[1]);
+        // Chuyển đổi vị trí hiện tại (nếu có)
+        int[] currentCoords = currentPos != null ? positionToCoordinates(currentPos) : new int[]{-1, -1};
+
+        // Tìm điểm tiếp cận tối ưu, có xét đến vị trí hiện tại và đích
+        int[] accessPoint1 = findOptimalAccessPoint(coords1[0], coords1[1],
+                currentCoords[0], currentCoords[1],
+                coords2[0], coords2[1]);
+
+        int[] accessPoint2 = findOptimalAccessPoint(coords2[0], coords2[1],
+                accessPoint1[0], accessPoint1[1],
+                -1, -1);
 
         // Tìm đường đi ngắn nhất giữa hai điểm tiếp cận
         ArrayList<int[]> path = findShortestPath(accessPoint1[0], accessPoint1[1],
@@ -371,6 +406,16 @@ public class WarehouseMap {
         }
 
         return distance + tierDistance;
+    }
+
+    /**
+     * Phương thức tương thích ngược để giữ khả năng hoạt động với mã cũ
+     * @param pos1 Vị trí bắt đầu
+     * @param pos2 Vị trí kết thúc
+     * @return Khoảng cách thực tế (số bước đi)
+     */
+    public float calculateActualDistance(Position pos1, Position pos2) {
+        return calculateActualDistance(pos1, pos2, null);
     }
 
     /**

@@ -52,16 +52,24 @@ public class PSO {
         for (int iteration = 0; iteration < maxIterations; iteration++) {
             // Cập nhật vị trí và vận tốc cho mỗi hạt
             for (Particle particle : swarm) {
-                updateVelocityAndPosition(particle);
+                updateVelocityAndPosition(particle, warehousing);
+
+                // Đặt lại vị trí hiện tại của robot trước khi đánh giá
+                for (Robot robot : particle.getSolution().getRobots()) {
+                    robot.setCurrentPosition(robot.getStartPosition().copy());
+                }
+                DistanceCalculator.setCurrentRobotPosition(particle.getSolution().getRobots().get(0).getStartPosition());
 
                 // Đánh giá độ thích nghi
                 double fitness = evaluateFitness(particle.getSolution(), warehousing);
                 particle.getSolution().setFitness(fitness);
 
                 // Cập nhật vị trí tốt nhất của hạt
+                boolean improved = false;
                 if (fitness < particle.getBestFitness()) {
                     particle.setBestSolution(new Solution(particle.getSolution()));
                     particle.setBestFitness(fitness);
+                    improved = true;
 
                     // Cập nhật vị trí tốt nhất toàn cục nếu cần
                     if (fitness < globalBest.getBestFitness()) {
@@ -69,14 +77,24 @@ public class PSO {
                         globalBest.setBestFitness(fitness);
                     }
                 }
+
+                // In thông tin nếu có cải thiện đáng kể
+                if (improved && iteration % 5 == 0) {
+                    System.out.println("  Hạt cải thiện: " + fitness + " (giảm " +
+                            String.format("%.2f", (particle.getBestFitness() - fitness)) + " đơn vị)");
+                }
             }
 
             // Áp dụng VNS để cải thiện giải pháp tốt nhất toàn cục sau mỗi N vòng lặp
             if (iteration % 5 == 0) {
+                double oldFitness = globalBest.getBestFitness();
                 Solution improvedSolution = vns.improve(globalBest.getBestSolution(), warehousing);
-                if (improvedSolution.getFitness() < globalBest.getBestFitness()) {
+
+                if (improvedSolution.getFitness() < oldFitness) {
                     globalBest.setBestSolution(improvedSolution);
                     globalBest.setBestFitness(improvedSolution.getFitness());
+                    System.out.println("  VNS cải thiện giải pháp: " + improvedSolution.getFitness() +
+                            " (giảm " + String.format("%.2f", (oldFitness - improvedSolution.getFitness())) + " đơn vị)");
                 }
             }
 
@@ -87,6 +105,10 @@ public class PSO {
         }
 
         System.out.println("PSO đã hoàn thành. Quãng đường tốt nhất: " + globalBest.getBestFitness());
+
+        // Tối ưu hóa cuối cùng cho giải pháp tốt nhất
+        optimizeRouteOrders(globalBest.getBestSolution(), warehousing);
+
         return globalBest.getBestSolution();
     }
 
@@ -97,13 +119,42 @@ public class PSO {
      * @param robots Danh sách robot
      */
     private void initializeSwarm(ArrayList<Merchandise> warehousing, ArrayList<Merchandise> require, ArrayList<Robot> robots) {
+        // Tạo danh sách các robot với vị trí hiện tại được đặt
+        ArrayList<Robot> initializedRobots = new ArrayList<>();
+        for (Robot robot : robots) {
+            Robot newRobot = new Robot(robot.nameRobot, robot.getStartPosition());
+            newRobot.capacity = robot.capacity;
+            initializedRobots.add(newRobot);
+        }
+
         // Tạo các hạt ban đầu
         for (int i = 0; i < swarmSize; i++) {
             Particle particle = new Particle();
 
+            // Tạo bản sao mới của danh sách robot cho mỗi giải pháp
+            ArrayList<Robot> particleRobots = new ArrayList<>();
+            for (Robot robot : initializedRobots) {
+                Robot robotCopy = new Robot(robot.nameRobot, robot.getStartPosition());
+                robotCopy.capacity = robot.capacity;
+                particleRobots.add(robotCopy);
+            }
+
             // Khởi tạo với một giải pháp ngẫu nhiên
-            Solution solution = new Solution(robots);
+            Solution solution = new Solution(particleRobots);
             solution.initializeRandomSolution(require);
+
+            // Đặt vị trí hiện tại của tất cả robot về vị trí xuất phát
+            for (Robot robot : solution.getRobots()) {
+                robot.setCurrentPosition(robot.getStartPosition().copy());
+            }
+
+            // Đặt vị trí hiện tại cho DistanceCalculator
+            if (!solution.getRobots().isEmpty()) {
+                DistanceCalculator.setCurrentRobotPosition(solution.getRobots().get(0).getStartPosition());
+            }
+
+            // Tối ưu hóa thứ tự trong mỗi tuyến đường
+            optimizeRouteOrders(solution, warehousing);
 
             // Đánh giá độ thích nghi ban đầu
             double fitness = evaluateFitness(solution, warehousing);
@@ -128,61 +179,113 @@ public class PSO {
     }
 
     /**
+     * Tối ưu hóa thứ tự các mặt hàng trong tất cả các tuyến đường robot
+     * @param solution Giải pháp cần tối ưu hóa
+     * @param warehousing Kho hàng
+     */
+    private void optimizeRouteOrders(Solution solution, ArrayList<Merchandise> warehousing) {
+        for (int i = 0; i < solution.getRobotRoutes().size(); i++) {
+            if (!solution.getRobotRoutes().get(i).isEmpty()) {
+                // Đặt vị trí hiện tại của robot về vị trí xuất phát
+                Robot robot = solution.getRobots().get(i);
+                robot.setCurrentPosition(robot.getStartPosition().copy());
+                DistanceCalculator.setCurrentRobotPosition(robot.getStartPosition());
+
+                // Tối ưu thứ tự bằng phương pháp người láng giềng gần nhất
+                solution.optimizeRouteOrder(i, warehousing);
+            }
+        }
+
+        // Cập nhật lại fitness
+        double newFitness = evaluateFitness(solution, warehousing);
+        solution.setFitness(newFitness);
+    }
+
+    /**
      * Cập nhật vận tốc và vị trí cho một hạt
      * @param particle Hạt cần cập nhật
+     * @param warehousing Kho hàng
      */
-    private void updateVelocityAndPosition(Particle particle) {
+    private void updateVelocityAndPosition(Particle particle, ArrayList<Merchandise> warehousing) {
         Solution currentSolution = particle.getSolution();
         Solution personalBest = particle.getBestSolution();
         Solution globalBestSolution = globalBest.getBestSolution();
 
-        // Cho mỗi tuyến đường của robot trong giải pháp
+        // Tạo danh sách tạm thời các tuyến đường mới
+        ArrayList<ArrayList<Merchandise>> newRoutes = new ArrayList<>();
         for (int i = 0; i < currentSolution.getRobotRoutes().size(); i++) {
             ArrayList<Merchandise> currentRoute = currentSolution.getRobotRoutes().get(i);
+            ArrayList<Merchandise> newRoute = new ArrayList<>(currentRoute);
+            newRoutes.add(newRoute);
+        }
+
+        // Cho mỗi tuyến đường của robot trong giải pháp
+        for (int i = 0; i < newRoutes.size(); i++) {
+            ArrayList<Merchandise> currentRoute = newRoutes.get(i);
 
             // Áp dụng các phép toán PSO để điều chỉnh tuyến đường
             // Với xác suất dựa trên w, giữ một số mặt hàng ở vị trí hiện tại
             for (int j = 0; j < currentRoute.size(); j++) {
                 if (random.nextDouble() > w) {
                     // Với xác suất dựa trên c1, kết hợp thông tin từ vị trí tốt nhất cá nhân
-                    if (random.nextDouble() < c1 && i < personalBest.getRobotRoutes().size() &&
-                            j < personalBest.getRobotRoutes().get(i).size()) {
-                        // Thử chèn một mặt hàng từ vị trí tốt nhất cá nhân nếu chưa có trong tuyến đường
-                        Merchandise itemFromPersonalBest = personalBest.getRobotRoutes().get(i).get(j);
-                        if (!containsMerchandise(currentRoute, itemFromPersonalBest)) {
-                            // Tìm vị trí để chèn hoặc thay thế
-                            int insertPos = random.nextInt(currentRoute.size() + 1);
-                            if (insertPos < currentRoute.size()) {
-                                currentRoute.set(insertPos, itemFromPersonalBest);
-                            } else {
-                                currentRoute.add(itemFromPersonalBest);
+                    if (random.nextDouble() < c1 && i < personalBest.getRobotRoutes().size()) {
+                        ArrayList<Merchandise> personalBestRoute = personalBest.getRobotRoutes().get(i);
+                        if (!personalBestRoute.isEmpty()) {
+                            // Lấy một mặt hàng ngẫu nhiên từ vị trí tốt nhất cá nhân
+                            int randomIndex = random.nextInt(personalBestRoute.size());
+                            Merchandise itemFromPersonalBest = personalBestRoute.get(randomIndex);
+
+                            if (!containsMerchandise(currentRoute, itemFromPersonalBest)) {
+                                // Chèn mặt hàng vào vị trí ngẫu nhiên
+                                int insertPos = random.nextInt(currentRoute.size() + 1);
+                                if (insertPos < currentRoute.size()) {
+                                    currentRoute.add(insertPos, itemFromPersonalBest);
+                                } else {
+                                    currentRoute.add(itemFromPersonalBest);
+                                }
                             }
                         }
                     }
 
                     // Với xác suất dựa trên c2, kết hợp thông tin từ vị trí tốt nhất toàn cục
-                    if (random.nextDouble() < c2 && i < globalBestSolution.getRobotRoutes().size() &&
-                            j < globalBestSolution.getRobotRoutes().get(i).size()) {
-                        Merchandise itemFromGlobalBest = globalBestSolution.getRobotRoutes().get(i).get(j);
-                        if (!containsMerchandise(currentRoute, itemFromGlobalBest)) {
-                            // Tìm vị trí để chèn hoặc thay thế
-                            int insertPos = random.nextInt(currentRoute.size() + 1);
-                            if (insertPos < currentRoute.size()) {
-                                currentRoute.set(insertPos, itemFromGlobalBest);
-                            } else {
-                                currentRoute.add(itemFromGlobalBest);
+                    if (random.nextDouble() < c2 && i < globalBestSolution.getRobotRoutes().size()) {
+                        ArrayList<Merchandise> globalBestRoute = globalBestSolution.getRobotRoutes().get(i);
+                        if (!globalBestRoute.isEmpty()) {
+                            // Lấy một mặt hàng ngẫu nhiên từ vị trí tốt nhất toàn cục
+                            int randomIndex = random.nextInt(globalBestRoute.size());
+                            Merchandise itemFromGlobalBest = globalBestRoute.get(randomIndex);
+
+                            if (!containsMerchandise(currentRoute, itemFromGlobalBest)) {
+                                // Chèn mặt hàng vào vị trí ngẫu nhiên
+                                int insertPos = random.nextInt(currentRoute.size() + 1);
+                                if (insertPos < currentRoute.size()) {
+                                    currentRoute.add(insertPos, itemFromGlobalBest);
+                                } else {
+                                    currentRoute.add(itemFromGlobalBest);
+                                }
                             }
                         }
                     }
                 }
             }
 
-            // Đảm bảo ràng buộc về sức chứa không bị vi phạm
+            // Đảm bảo ràng buộc về sức chứa
             enforceCapacityConstraints(currentRoute, currentSolution.getRobots().get(i).capacity);
         }
 
-        // Đảm bảo tất cả các mặt hàng được yêu cầu đều được phân bổ cho một số robot
+        // Cập nhật tuyến đường của giải pháp hiện tại
+        for (int i = 0; i < newRoutes.size(); i++) {
+            currentSolution.getRobotRoutes().set(i, newRoutes.get(i));
+        }
+
+        // Đảm bảo tất cả các mặt hàng yêu cầu đều được phân bổ
         ensureAllItemsAllocated(currentSolution, globalBestSolution.getAllRequiredItems());
+
+        // Tối ưu hóa thứ tự các mặt hàng trong các tuyến đường sau khi cập nhật
+        // Chỉ tối ưu thỉnh thoảng để tăng hiệu suất
+        if (random.nextDouble() < 0.3) {
+            optimizeRouteOrders(currentSolution, warehousing);
+        }
     }
 
     /**
@@ -271,9 +374,11 @@ public class PSO {
                 if (robotIndex >= 0) {
                     ArrayList<Merchandise> route = solution.getRobotRoutes().get(robotIndex);
                     // Xóa mặt hàng ít quan trọng nhất
-                    route.remove(route.size() - 1);
-                    // Thêm mặt hàng còn thiếu
-                    route.add(missing);
+                    if (!route.isEmpty()) {
+                        route.remove(route.size() - 1);
+                        // Thêm mặt hàng còn thiếu
+                        route.add(missing);
+                    }
                 }
             }
         }
@@ -313,25 +418,33 @@ public class PSO {
             if (route.isEmpty()) continue;
 
             Robot robot = solution.getRobots().get(i);
-            Position startPosition = robot.getStartPosition(); // Lấy vị trí xuất phát của robot
+            Position startPosition = robot.getStartPosition();
+            robot.setCurrentPosition(startPosition.copy());
+            DistanceCalculator.setCurrentRobotPosition(startPosition);
 
-            // Bắt đầu từ vị trí xuất phát
             Position currentPosition = startPosition;
 
-            // Tính khoảng cách cho mỗi mặt hàng trong tuyến đường
             for (Merchandise merchandise : route) {
-                // Tìm mặt hàng trong kho để lấy vị trí
+                // Tìm mặt hàng trong kho
                 Merchandise warehouseItem = findMerchandiseInWarehouse(merchandise, warehousing);
                 if (warehouseItem != null) {
-                    // Tính khoảng cách từ vị trí hiện tại đến mặt hàng này
-                    float distance = DistanceCalculator.calculateDistance(currentPosition, warehouseItem.getPosition());
+                    // Chọn vị trí tối ưu dựa trên vị trí hiện tại
+                    Position optimalPosition = warehouseItem.getOptimalPosition(currentPosition);
+
+                    // Tính khoảng cách từ vị trí hiện tại đến vị trí tối ưu
+                    float distance = DistanceCalculator.calculateDistance(currentPosition, optimalPosition);
                     totalDistance += distance;
-                    currentPosition = warehouseItem.getPosition();
+
+                    // Cập nhật vị trí hiện tại
+                    currentPosition = optimalPosition;
+                    robot.setCurrentPosition(currentPosition);
                 }
             }
 
             // Quay lại vị trí xuất phát
-            totalDistance += DistanceCalculator.calculateDistance(currentPosition, startPosition);
+            float returnDistance = DistanceCalculator.calculateDistance(currentPosition, startPosition);
+            totalDistance += returnDistance;
+            robot.setCurrentPosition(startPosition.copy());
         }
 
         return totalDistance;

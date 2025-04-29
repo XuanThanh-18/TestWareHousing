@@ -34,16 +34,6 @@ public class Individual {
 
     /**
      * Giải bài toán tìm đường đi tối ưu bằng PSO-VNS
-     * @param warehousing Kho hàng
-     * @return Tổng chi phí quãng đường
-     */
-    public float solvePsoVns(ArrayList<Merchandise> warehousing) {
-        // Sử dụng vị trí mặc định
-        return solvePsoVns(DEFAULT_COUNTER_POSITION, warehousing);
-    }
-
-    /**
-     * Giải bài toán tìm đường đi tối ưu bằng PSO-VNS
      * @param positionCurrent Vị trí hiện tại (counter)
      * @param warehousing Kho hàng
      * @return Tổng chi phí quãng đường

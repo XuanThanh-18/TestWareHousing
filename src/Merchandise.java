@@ -1,3 +1,5 @@
+import java.util.ArrayList;
+
 /**
  * Lớp Merchandise đại diện cho một mặt hàng trong kho
  * Chứa thông tin về tên, số lượng và vị trí của mặt hàng
@@ -8,21 +10,21 @@ public class Merchandise {
     private String name;
     private int quantity;
     private Position position = new Position();
+    private ArrayList<Position> alternativePositions = new ArrayList<>();
 
-    /**
-     * Tính khoảng cách từ mặt hàng này đến mặt hàng khác
-     * @param other Mặt hàng khác
-     * @return Khoảng cách giữa hai mặt hàng
-     */
-    public float distanceTo(Merchandise other) {
-        if ((this.position.getShelf() == other.position.getShelf()) && (this.position.getSlot() == other.position.getSlot()))
-            return LAYERDISTANCE * (Math.abs(this.position.getTier() - other.position.getTier()));
-
-        return Math.min(this.position.x + other.position.x, 2 * (K + 2) - (this.position.x + other.position.x)) +
-                Math.abs(this.position.y - other.position.y) +
-                LAYERDISTANCE * (this.position.getTier() + other.position.getTier() - 2);
+    public void addAlternativePosition(Position pos) {
+        if (pos != null) {
+            alternativePositions.add(pos);
+        }
     }
 
+    // Phương thức lấy tất cả vị trí (vị trí chính + vị trí thay thế)
+    public ArrayList<Position> getAllPositions() {
+        ArrayList<Position> allPositions = new ArrayList<>();
+        allPositions.add(position); // Vị trí chính
+        allPositions.addAll(alternativePositions); // Vị trí thay thế
+        return allPositions;
+    }
     /**
      * Khởi tạo một mặt hàng với tên, số lượng và vị trí
      * @param name Tên mặt hàng
@@ -113,15 +115,24 @@ public class Merchandise {
         return this.name.equals(other.name) && this.quantity == other.quantity;
     }
 
-    /**
-     * Tạo một bản sao của mặt hàng
-     * @return Bản sao của mặt hàng
-     */
-    public Merchandise copy() {
-        Merchandise copy = new Merchandise(this.name, this.quantity);
-        if (this.position != null) {
-            copy.setPosition(this.position.copy());
+    // Phương thức chọn vị trí tối ưu dựa trên vị trí hiện tại
+    public Position getOptimalPosition(Position currentPosition) {
+        if (alternativePositions.isEmpty()) {
+            return position; // Nếu không có vị trí thay thế, trả về vị trí chính
         }
-        return copy;
+
+        // Tìm vị trí gần nhất với vị trí hiện tại
+        Position bestPosition = position;
+        float minDistance = DistanceCalculator.calculateManhattanDistance(currentPosition, position);
+
+        for (Position altPos : alternativePositions) {
+            float distance = DistanceCalculator.calculateManhattanDistance(currentPosition, altPos);
+            if (distance < minDistance) {
+                minDistance = distance;
+                bestPosition = altPos;
+            }
+        }
+
+        return bestPosition;
     }
 }
