@@ -1,5 +1,6 @@
 import java.util.ArrayList;
 import java.util.LinkedList;
+import java.util.PriorityQueue;
 import java.util.Queue;
 
 /**
@@ -264,71 +265,87 @@ public class WarehouseMap {
             }
         }
 
-        // Mảng đánh dấu ô đã thăm
-        boolean[][] visited = new boolean[rows][cols];
+        // Mảng mở - chứa các node đang xem xét
+        PriorityQueue<AStarNode> openSet = new PriorityQueue<>();
+        // Mảng đóng - chứa các node đã xem xét
+        boolean[][] closedSet = new boolean[rows][cols];
         // Mảng lưu trữ ô cha (để truy vết đường đi)
         int[][][] parent = new int[rows][cols][2];
+        // Mảng lưu giá trị g (chi phí từ điểm bắt đầu đến node hiện tại)
+        float[][] gScore = new float[rows][cols];
+        // Khởi tạo tất cả gScore với giá trị vô cùng
+        for (int i = 0; i < rows; i++) {
+            for (int j = 0; j < cols; j++) {
+                gScore[i][j] = Float.MAX_VALUE;
+            }
+        }
 
-        // Khởi tạo hàng đợi cho BFS - Sử dụng ArrayDeque thay vì LinkedList để cải thiện hiệu suất
-        java.util.Deque<int[]> queue = new java.util.ArrayDeque<>();
-        queue.add(new int[] {startRow, startCol});
-        visited[startRow][startCol] = true;
+        // Điểm bắt đầu có gScore = 0
+        gScore[startRow][startCol] = 0;
+
+        // Thêm node bắt đầu vào openSet
+        openSet.add(new AStarNode(startRow, startCol, 0, heuristic(startRow, startCol, endRow, endCol)));
+
 
         // Mảng các hướng di chuyển (lên, phải, xuống, trái)
         int[] dr = {-1, 0, 1, 0};
         int[] dc = {0, 1, 0, -1};
-
-        // BFS
         boolean found = false;
-        while (!queue.isEmpty() && !found) {
-            int[] current = queue.poll();
-            int row = current[0];
-            int col = current[1];
+        while (!openSet.isEmpty()) {
+            // Lấy node có fScore thấp nhất từ openSet
+            AStarNode current = openSet.poll();
+            int row = current.row;
+            int col = current.col;
 
-            // Kiểm tra nếu đã đến đích
+            // Nếu đã đến đích
             if (row == endRow && col == endCol) {
                 found = true;
                 break;
             }
 
-            // Tối ưu hóa: Ưu tiên hướng về phía đích
-            int[] priorities = new int[4];
+            // Đánh dấu đã xem xét
+            closedSet[row][col] = true;
+
+            // Xem xét tất cả các hướng di chuyển
             for (int i = 0; i < 4; i++) {
-                priorities[i] = i;
-            }
+                int newRow = row + dr[i];
+                int newCol = col + dc[i];
 
-            // Sắp xếp hướng theo độ ưu tiên (hướng nào gần đích hơn sẽ được xem xét trước)
-            for (int i = 0; i < 3; i++) {
-                for (int j = 0; j < 3 - i; j++) {
-                    int dir1 = priorities[j];
-                    int dir2 = priorities[j + 1];
+                // Kiểm tra vị trí mới có hợp lệ, đi được và chưa ở trong closedSet
+                if (isValidPosition(newRow, newCol) && isWalkable(newRow, newCol) && !closedSet[newRow][newCol]) {
+                    // Chi phí đến node mới
+                    float tentativeGScore = gScore[row][col] + 1.0f;  // Khoảng cách giữa hai ô liền kề là 1.0
 
-                    int dist1 = Math.abs((row + dr[dir1]) - endRow) + Math.abs((col + dc[dir1]) - endCol);
-                    int dist2 = Math.abs((row + dr[dir2]) - endRow) + Math.abs((col + dc[dir2]) - endCol);
+                    // Nếu tìm thấy đường tốt hơn đến node này
+                    if (tentativeGScore < gScore[newRow][newCol]) {
+                        // Cập nhật parent
+                        parent[newRow][newCol] = new int[] {row, col};
+                        // Cập nhật gScore
+                        gScore[newRow][newCol] = tentativeGScore;
+                        // Tính fScore = gScore + heuristic
+                        float fScore = tentativeGScore + heuristic(newRow, newCol, endRow, endCol);
 
-                    if (dist1 > dist2) {
-                        // Hoán đổi
-                        priorities[j] = dir2;
-                        priorities[j + 1] = dir1;
+                        // Thêm vào openSet hoặc cập nhật nếu đã tồn tại
+                        boolean inOpenSet = false;
+                        for (AStarNode node : openSet) {
+                            if (node.row == newRow && node.col == newCol) {
+                                inOpenSet = true;
+                                // Nếu tìm thấy đường tốt hơn, cập nhật fScore
+                                if (fScore < node.fScore) {
+                                    openSet.remove(node);
+                                    openSet.add(new AStarNode(newRow, newCol, tentativeGScore, fScore));
+                                }
+                                break;
+                            }
+                        }
+
+                        if (!inOpenSet) {
+                            openSet.add(new AStarNode(newRow, newCol, tentativeGScore, fScore));
+                        }
                     }
                 }
             }
-
-            // Thử tất cả các hướng di chuyển theo thứ tự ưu tiên
-            for (int i = 0; i < 4; i++) {
-                int dir = priorities[i];
-                int newRow = row + dr[dir];
-                int newCol = col + dc[dir];
-
-                // Kiểm tra vị trí mới có hợp lệ, đi được và chưa thăm
-                if (isValidPosition(newRow, newCol) && isWalkable(newRow, newCol) && !visited[newRow][newCol]) {
-                    queue.add(new int[] {newRow, newCol});
-                    visited[newRow][newCol] = true;
-                    parent[newRow][newCol] = new int[] {row, col};
-                }
-            }
         }
-
         // Nếu không tìm thấy đường đi
         if (!found) {
             return new ArrayList<>();
@@ -346,7 +363,10 @@ public class WarehouseMap {
 
         return path;
     }
-
+    // Hàm heuristic (khoảng cách Manhattan)
+    private float heuristic(int row1, int col1, int row2, int col2) {
+        return Math.abs(row1 - row2) + Math.abs(col1 - col2);
+    }
     /**
      * Tính khoảng cách thực tế giữa hai vị trí trên bản đồ (theo đường đi thực)
      * @param pos1 Vị trí bắt đầu
@@ -495,6 +515,23 @@ public class WarehouseMap {
                 System.out.print(displayMap[i][j] + " ");
             }
             System.out.println();
+        }
+    }
+    private class AStarNode implements Comparable<AStarNode> {
+        int row, col;
+        float gScore;  // Chi phí từ điểm bắt đầu đến node này
+        float fScore;  // gScore + heuristic
+
+        public AStarNode(int row, int col, float gScore, float fScore) {
+            this.row = row;
+            this.col = col;
+            this.gScore = gScore;
+            this.fScore = fScore;
+        }
+
+        @Override
+        public int compareTo(AStarNode other) {
+            return Float.compare(this.fScore, other.fScore);
         }
     }
 }

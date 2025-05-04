@@ -34,10 +34,22 @@ public class WareHousing {
             warehousing.add(merchandise);
         }
 
+        // Tính toán điểm tiếp cận cho tất cả mặt hàng
+        WarehouseMap warehouseMap;
+        if (Params.WAREHOUSE_MAP != null) {
+            warehouseMap = new WarehouseMap(Params.WAREHOUSE_MAP);
+        } else {
+            warehouseMap = WarehouseMap.createMapFromWarehouse(Params.SHELVES, Params.SLOTS);
+        }
+
+        for (Merchandise merchandise : warehousing) {
+            merchandise.calculateAccessPoint(warehouseMap);
+        }
+
         // In thông tin kho hàng
         System.out.println("Đã thiết lập kho hàng với " + warehousing.size() + " món hàng:");
         for (int i = 0; i < warehousing.size(); i++) {
-            System.out.println("- " + warehousing.get(i));
+            System.out.println("- " + warehousing.get(i) + " (điểm tiếp cận: " + warehousing.get(i).getAccessPoint() + ")");
         }
 
         return warehousing;

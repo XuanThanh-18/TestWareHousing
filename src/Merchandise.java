@@ -5,13 +5,28 @@ import java.util.ArrayList;
  * Chứa thông tin về tên, số lượng và vị trí của mặt hàng
  */
 public class Merchandise {
-    public final int K = Params.SLOTS;
-    public final float LAYERDISTANCE = 0.5f;
     private String name;
     private int quantity;
     private Position position = new Position();
     private ArrayList<Position> alternativePositions = new ArrayList<>();
+    private Position accessPoint; // Điểm tiếp cận gần nhất của mặt hàng này
 
+    // Thêm getter/setter
+    public Position getAccessPoint() {
+        return accessPoint;
+    }
+
+    public void setAccessPoint(Position accessPoint) {
+        this.accessPoint = accessPoint;
+    }
+    // Tính và cập nhật điểm tiếp cận
+    public void calculateAccessPoint(WarehouseMap map) {
+        if (this.position != null) {
+            int[] coords = map.positionToCoordinates(this.position);
+            int[] accessCoords = map.findNearestAccessPoint(coords[0], coords[1]);
+            this.accessPoint = map.coordinatesToPosition(accessCoords[0], accessCoords[1]);
+        }
+    }
     public void addAlternativePosition(Position pos) {
         if (pos != null) {
             alternativePositions.add(pos);

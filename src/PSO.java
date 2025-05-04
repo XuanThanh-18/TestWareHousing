@@ -419,6 +419,8 @@ public class PSO {
 
             Robot robot = solution.getRobots().get(i);
             Position startPosition = robot.getStartPosition();
+
+            // Đặt vị trí hiện tại của robot về vị trí xuất phát
             robot.setCurrentPosition(startPosition.copy());
             DistanceCalculator.setCurrentRobotPosition(startPosition);
 
@@ -428,21 +430,18 @@ public class PSO {
                 // Tìm mặt hàng trong kho
                 Merchandise warehouseItem = findMerchandiseInWarehouse(merchandise, warehousing);
                 if (warehouseItem != null) {
-                    // Chọn vị trí tối ưu dựa trên vị trí hiện tại
-                    Position optimalPosition = warehouseItem.getOptimalPosition(currentPosition);
-
-                    // Tính khoảng cách từ vị trí hiện tại đến vị trí tối ưu
-                    float distance = DistanceCalculator.calculateDistance(currentPosition, optimalPosition);
+                    // Quan trọng: Tính khoảng cách từ vị trí THỰC TẾ hiện tại đến mặt hàng
+                    float distance = DistanceCalculator.calculateDistance(robot.getCurrentPosition(), warehouseItem.getPosition());
                     totalDistance += distance;
 
-                    // Cập nhật vị trí hiện tại
-                    currentPosition = optimalPosition;
+                    // Vị trí hiện tại đã được cập nhật trong DistanceCalculator.calculateDistance()
+                    currentPosition = DistanceCalculator.getCurrentRobotPosition();
                     robot.setCurrentPosition(currentPosition);
                 }
             }
 
             // Quay lại vị trí xuất phát
-            float returnDistance = DistanceCalculator.calculateDistance(currentPosition, startPosition);
+            float returnDistance = DistanceCalculator.calculateDistance(robot.getCurrentPosition(), startPosition);
             totalDistance += returnDistance;
             robot.setCurrentPosition(startPosition.copy());
         }
