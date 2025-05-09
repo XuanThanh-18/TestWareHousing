@@ -424,26 +424,28 @@ public class PSO {
             robot.setCurrentPosition(startPosition.copy());
             DistanceCalculator.setCurrentRobotPosition(startPosition);
 
-            Position currentPosition = startPosition;
-
             for (Merchandise merchandise : route) {
                 // Tìm mặt hàng trong kho
                 Merchandise warehouseItem = findMerchandiseInWarehouse(merchandise, warehousing);
                 if (warehouseItem != null) {
-                    // Quan trọng: Tính khoảng cách từ vị trí THỰC TẾ hiện tại đến mặt hàng
-                    float distance = DistanceCalculator.calculateDistance(robot.getCurrentPosition(), warehouseItem.getPosition());
+                    // Tính khoảng cách từ vị trí hiện tại đến mặt hàng này
+                    float distance = DistanceCalculator.calculateDistance(
+                            robot.getCurrentPosition(),
+                            warehouseItem.getPosition()
+                    );
                     totalDistance += distance;
 
-                    // Vị trí hiện tại đã được cập nhật trong DistanceCalculator.calculateDistance()
-                    currentPosition = DistanceCalculator.getCurrentRobotPosition();
-                    robot.setCurrentPosition(currentPosition);
+                    // Lấy vị trí hiện tại từ DistanceCalculator sau khi tính khoảng cách
+                    robot.setCurrentPosition(DistanceCalculator.getCurrentRobotPosition());
                 }
             }
 
             // Quay lại vị trí xuất phát
-            float returnDistance = DistanceCalculator.calculateDistance(robot.getCurrentPosition(), startPosition);
+            float returnDistance = DistanceCalculator.calculateDistance(
+                    robot.getCurrentPosition(),
+                    startPosition
+            );
             totalDistance += returnDistance;
-            robot.setCurrentPosition(startPosition.copy());
         }
 
         return totalDistance;

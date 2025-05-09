@@ -161,23 +161,22 @@ public class DistanceCalculator {
         String cacheKey = getCacheKey(actualStartPosition, pos2);
         if (distanceCache.containsKey(cacheKey)) {
             // Khi lấy từ cache, vẫn cập nhật vị trí hiện tại
-            // Vị trí cuối cùng sẽ phụ thuộc vào vị trí đích
-            updateCurrentPositionBasedOnTarget(pos2);
+            currentRobotPosition = pos2.copy();
             return distanceCache.get(cacheKey);
         }
 
         // Tính khoảng cách từ vị trí thực tế đến đích
         float distance;
         if (warehouseMap != null) {
-            distance = warehouseMap.calculateActualDistance(actualStartPosition, pos2);
+            distance = computeActualDistance(actualStartPosition, pos2);
         } else {
             distance = calculateManhattanDistance(actualStartPosition, pos2);
         }
 
         distanceCache.put(cacheKey, distance);
 
-        // Cập nhật vị trí hiện tại dựa trên đích
-        updateCurrentPositionBasedOnTarget(pos2);
+        // Cập nhật vị trí hiện tại thành đích
+        currentRobotPosition = pos2.copy();
 
         return distance;
     }
@@ -350,4 +349,5 @@ public class DistanceCalculator {
     public static int getCacheSize() {
         return distanceCache.size();
     }
+
 }

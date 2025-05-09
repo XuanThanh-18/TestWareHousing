@@ -127,7 +127,8 @@ public class Robot {
         float totalDistance = 0;
         Position currentPos = startPosition.copy();
 
-        // Đặt vị trí hiện tại của DistanceCalculator về vị trí xuất phát
+        // Đặt vị trí hiện tại của robot về vị trí xuất phát
+        this.setCurrentPosition(currentPos);
         DistanceCalculator.setCurrentRobotPosition(currentPos);
 
         // Đi đến từng mặt hàng trong giỏ hàng
@@ -135,22 +136,28 @@ public class Robot {
             // Tìm vị trí của mặt hàng trong kho
             Merchandise warehouseItem = findItemInWarehouse(item, warehousing);
             if (warehouseItem != null) {
-                // Tính khoảng cách đến mặt hàng tiếp theo
-                float distance = DistanceCalculator.calculateDistance(currentPos, warehouseItem.getPosition());
+                // Tính khoảng cách đến mặt hàng tiếp theo từ vị trí hiện tại
+                float distance = DistanceCalculator.calculateDistance(
+                        DistanceCalculator.getCurrentRobotPosition(),
+                        warehouseItem.getPosition()
+                );
                 totalDistance += distance;
-                // Cập nhật vị trí hiện tại
-                currentPos = warehouseItem.getPosition();
+
                 // Cập nhật vị trí hiện tại của robot
-                this.setCurrentPosition(currentPos);
+                this.setCurrentPosition(DistanceCalculator.getCurrentRobotPosition());
             }
         }
 
         // Quay lại vị trí xuất phát
-        float returnDistance = DistanceCalculator.calculateDistance(currentPos, startPosition);
+        float returnDistance = DistanceCalculator.calculateDistance(
+                DistanceCalculator.getCurrentRobotPosition(),
+                startPosition
+        );
         totalDistance += returnDistance;
 
         // Cập nhật vị trí hiện tại của robot về vị trí xuất phát sau khi hoàn thành
         this.setCurrentPosition(startPosition.copy());
+        DistanceCalculator.setCurrentRobotPosition(startPosition);
 
         return totalDistance;
     }
