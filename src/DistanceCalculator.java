@@ -35,7 +35,11 @@ public class DistanceCalculator {
      * @param position Vị trí hiện tại
      */
     public static void setCurrentRobotPosition(Position position) {
-        currentRobotPosition = position != null ? position.copy() : null;
+        if (position != null) {
+            currentRobotPosition = position.copy();
+        } else {
+            currentRobotPosition = null;
+        }
     }
 
     /**
@@ -63,15 +67,17 @@ public class DistanceCalculator {
         // Tính khoảng cách từ counter đến mỗi mặt hàng
         for (Merchandise item : warehousing) {
             Position itemPos = item.getPosition();
+
             // Đặt vị trí hiện tại là counter
             setCurrentRobotPosition(counterPosition);
+
             // Tính khoảng cách từ counter đến mặt hàng
             String key = getCacheKey(counterPosition, itemPos);
-            float distance = computeActualDistance(counterPosition, itemPos);
+            float distance = computeDistance(counterPosition, itemPos);
             distanceCache.put(key, distance);
 
             // Tính đường đi từ counter đến mặt hàng
-            ArrayList<int[]> path = computePath(counterPosition, itemPos);
+            ArrayList<int[]> path = findPathBetween(counterPosition, itemPos);
             if (path != null && !path.isEmpty()) {
                 pathCache.put(key, path);
             }
@@ -88,15 +94,16 @@ public class DistanceCalculator {
                 Merchandise item2 = warehousing.get(j);
                 Position pos2 = item2.getPosition();
 
-                // Tính toán đường đi từ pos1 đến pos2
+                // Đặt vị trí hiện tại là vị trí của mặt hàng thứ nhất
                 setCurrentRobotPosition(pos1);
-                String key = getCacheKey(pos1, pos2);
 
-                float distance = computeActualDistance(pos1, pos2);
+                // Tính khoảng cách từ mặt hàng 1 đến mặt hàng 2
+                String key = getCacheKey(pos1, pos2);
+                float distance = computeDistance(pos1, pos2);
                 distanceCache.put(key, distance);
 
-                // Lưu trữ đường đi
-                ArrayList<int[]> path = computePath(pos1, pos2);
+                // Tính đường đi từ mặt hàng 1 đến mặt hàng 2
+                ArrayList<int[]> path = findPathBetween(pos1, pos2);
                 if (path != null && !path.isEmpty()) {
                     pathCache.put(key, path);
                 }
@@ -106,15 +113,17 @@ public class DistanceCalculator {
         // Tính các đường đi từ mỗi mặt hàng về counter
         for (Merchandise item : warehousing) {
             Position itemPos = item.getPosition();
+
             // Đặt vị trí hiện tại là vị trí của mặt hàng
             setCurrentRobotPosition(itemPos);
+
             // Tính khoảng cách từ mặt hàng về counter
             String key = getCacheKey(itemPos, counterPosition);
-            float distance = computeActualDistance(itemPos, counterPosition);
+            float distance = computeDistance(itemPos, counterPosition);
             distanceCache.put(key, distance);
 
             // Tính đường đi từ mặt hàng về counter
-            ArrayList<int[]> path = computePath(itemPos, counterPosition);
+            ArrayList<int[]> path = findPathBetween(itemPos, counterPosition);
             if (path != null && !path.isEmpty()) {
                 pathCache.put(key, path);
             }
@@ -141,6 +150,106 @@ public class DistanceCalculator {
     }
 
     /**
+     * Tính khoảng cách thực tế giữa hai vị trí
+     * @param pos1 Vị trí bắt đầu
+     * @param pos2 Vị trí kết thúc
+     * @return Khoảng cách
+     */
+    private static float computeDistance(Position pos1, Position pos2) {
+        if (warehouseMap == null) {
+            return calculateManhattanDistance(pos1, pos2);
+        }
+
+        // Chuyển đổi từ Position sang tọa độ 2D
+        int[] coords1 = warehouseMap.positionToCoordinates(pos1);
+        int[] coords2 = warehouseMap.positionToCoordinates(pos2);
+
+        // Kiểm tra xem các vị trí có đi được không
+        boolean pos1IsWalkable = warehouseMap.isWalkable(coords1[0], coords1[1]);
+        boolean pos2IsWalkable = warehouseMap.isWalkable(coords2[0], coords2[1]);
+
+        // Nếu vị trí đầu không đi được, tìm điểm tiếp cận
+        int[] accessPoint1 = coords1;
+        if (!pos1IsWalkable) {
+            accessPoint1 = warehouseMap.findNearestAccessPoint(coords1[0], coords1[1]);
+        }
+
+        // Nếu vị trí cuối không đi được, tìm điểm tiếp cận
+        int[] accessPoint2 = coords2;
+        if (!pos2IsWalkable) {
+            accessPoint2 = warehouseMap.findNearestAccessPoint(coords2[0], coords2[1]);
+        }
+
+        // Tính toán đường đi giữa hai điểm tiếp cận
+        ArrayList<int[]> path = warehouseMap.findShortestPath(
+                accessPoint1[0], accessPoint1[1],
+                accessPoint2[0], accessPoint2[1]
+        );
+
+        // Nếu không tìm được đường đi
+        if (path == null || path.isEmpty()) {
+            return calculateManhattanDistance(pos1, pos2);
+        }
+
+        // Tính khoảng cách dựa trên số bước đi
+        float distance = path.size() - 1; // Số bước đi = số ô - 1
+
+        // Nếu vị trí đầu không đi được, thêm khoảng cách từ vị trí đầu đến điểm tiếp cận (0.5)
+        if (!pos1IsWalkable) {
+            distance += 0.5f;
+        }
+
+        // Nếu vị trí cuối không đi được, thêm khoảng cách từ điểm tiếp cận đến vị trí cuối (0.5)
+        if (!pos2IsWalkable) {
+            distance += 0.5f;
+        }
+
+        // Log thông tin để giúp gỡ lỗi
+        System.out.println("DEBUG: Khoảng cách từ " + pos1 + " đến " + pos2 + " = " + distance);
+        if (!pos1IsWalkable) {
+            System.out.println("DEBUG: Vị trí bắt đầu " + pos1 + " không đi được, điểm tiếp cận: [" +
+                    accessPoint1[0] + ", " + accessPoint1[1] + "]");
+        }
+        if (!pos2IsWalkable) {
+            System.out.println("DEBUG: Vị trí kết thúc " + pos2 + " không đi được, điểm tiếp cận: [" +
+                    accessPoint2[0] + ", " + accessPoint2[1] + "]");
+        }
+
+        return distance;
+    }
+
+    /**
+     * Tìm đường đi giữa hai vị trí
+     * @param pos1 Vị trí bắt đầu
+     * @param pos2 Vị trí kết thúc
+     * @return Đường đi
+     */
+    private static ArrayList<int[]> findPathBetween(Position pos1, Position pos2) {
+        if (warehouseMap == null) {
+            return new ArrayList<>();
+        }
+
+        // Chuyển đổi từ Position sang tọa độ 2D
+        int[] coords1 = warehouseMap.positionToCoordinates(pos1);
+        int[] coords2 = warehouseMap.positionToCoordinates(pos2);
+
+        // Nếu điểm đầu không đi được, tìm điểm tiếp cận
+        if (!warehouseMap.isWalkable(coords1[0], coords1[1])) {
+            int[] accessPoint = warehouseMap.findNearestAccessPoint(coords1[0], coords1[1]);
+            coords1 = accessPoint;
+        }
+
+        // Nếu điểm cuối không đi được, tìm điểm tiếp cận
+        if (!warehouseMap.isWalkable(coords2[0], coords2[1])) {
+            int[] accessPoint = warehouseMap.findNearestAccessPoint(coords2[0], coords2[1]);
+            coords2 = accessPoint;
+        }
+
+        // Tìm đường đi giữa hai điểm
+        return warehouseMap.findShortestPath(coords1[0], coords1[1], coords2[0], coords2[1]);
+    }
+
+    /**
      * Tính khoảng cách từ vị trí 1 đến vị trí 2, đồng thời
      * cập nhật vị trí hiện tại của robot
      * @param pos1 Vị trí bắt đầu
@@ -154,103 +263,49 @@ public class DistanceCalculator {
             return 0.0f;
         }
 
-        // Quan trọng: Sử dụng vị trí thực tế hiện tại của robot (nếu có) làm điểm xuất phát
+        // Sử dụng vị trí hiện tại của robot làm điểm xuất phát nếu có
         Position actualStartPosition = (currentRobotPosition != null) ? currentRobotPosition : pos1;
 
-        // Kiểm tra cache với vị trí thực tế
+        // Kiểm tra cache
         String cacheKey = getCacheKey(actualStartPosition, pos2);
         if (distanceCache.containsKey(cacheKey)) {
-            // Khi lấy từ cache, vẫn cập nhật vị trí hiện tại
-            currentRobotPosition = pos2.copy();
+            // Vì đã di chuyển đến điểm đích, cập nhật vị trí hiện tại
+            updateCurrentPosition(pos2);
             return distanceCache.get(cacheKey);
         }
 
-        // Tính khoảng cách từ vị trí thực tế đến đích
-        float distance;
-        if (warehouseMap != null) {
-            distance = computeActualDistance(actualStartPosition, pos2);
-        } else {
-            distance = calculateManhattanDistance(actualStartPosition, pos2);
-        }
+        // Tính khoảng cách
+        float distance = computeDistance(actualStartPosition, pos2);
 
+        // Lưu vào cache
         distanceCache.put(cacheKey, distance);
 
-        // Cập nhật vị trí hiện tại thành đích
-        currentRobotPosition = pos2.copy();
+        // Cập nhật vị trí hiện tại
+        updateCurrentPosition(pos2);
 
         return distance;
     }
 
-    // Phương thức mới để cập nhật vị trí hiện tại dựa trên đích
-    private static void updateCurrentPositionBasedOnTarget(Position target) {
+    /**
+     * Cập nhật vị trí hiện tại của robot sau khi di chuyển đến vị trí đích
+     * @param targetPos Vị trí đích
+     */
+    private static void updateCurrentPosition(Position targetPos) {
         if (warehouseMap != null) {
-            int[] targetCoords = warehouseMap.positionToCoordinates(target);
-            // Nếu vị trí đích không đi được (trên kệ), thì vị trí hiện tại sẽ là điểm tiếp cận
-            if (!warehouseMap.isWalkable(targetCoords[0], targetCoords[1])) {
-                int[] accessCoords = warehouseMap.findNearestAccessPoint(targetCoords[0], targetCoords[1]);
-                currentRobotPosition = warehouseMap.coordinatesToPosition(accessCoords[0], accessCoords[1]);
+            int[] coords = warehouseMap.positionToCoordinates(targetPos);
+
+            // Nếu vị trí đích không đi được, tìm điểm tiếp cận
+            if (!warehouseMap.isWalkable(coords[0], coords[1])) {
+                int[] accessPoint = warehouseMap.findNearestAccessPoint(coords[0], coords[1]);
+                currentRobotPosition = warehouseMap.coordinatesToPosition(accessPoint[0], accessPoint[1]);
             } else {
-                // Nếu vị trí đích đi được, vị trí hiện tại sẽ là đích
-                currentRobotPosition = target.copy();
+                // Nếu vị trí đích đi được, cập nhật vị trí hiện tại là vị trí đích
+                currentRobotPosition = targetPos.copy();
             }
         } else {
-            // Nếu không có bản đồ, giả định robot có thể đến đích
-            currentRobotPosition = target.copy();
+            // Nếu không có bản đồ, cập nhật vị trí hiện tại là vị trí đích
+            currentRobotPosition = targetPos.copy();
         }
-    }
-
-    /**
-     * Phương thức nội bộ để tính khoảng cách thực tế
-     * @param pos1 Vị trí bắt đầu
-     * @param pos2 Vị trí kết thúc
-     * @return Khoảng cách thực tế
-     */
-    private static float computeActualDistance(Position pos1, Position pos2) {
-        if (warehouseMap != null) {
-            return warehouseMap.calculateActualDistance(pos1, pos2, currentRobotPosition);
-        } else {
-            return calculateManhattanDistance(pos1, pos2);
-        }
-    }
-
-    /**
-     * Phương thức nội bộ để tính đường đi thực tế
-     * @param pos1 Vị trí bắt đầu
-     * @param pos2 Vị trí kết thúc
-     * @return Đường đi thực tế
-     */
-    private static ArrayList<int[]> computePath(Position pos1, Position pos2) {
-        if (warehouseMap != null) {
-            int[] coords1 = warehouseMap.positionToCoordinates(pos1);
-            int[] coords2 = warehouseMap.positionToCoordinates(pos2);
-
-            // Sử dụng vị trí hiện tại để tính đường đi liên tục
-            int[] currentCoords = currentRobotPosition != null ?
-                    warehouseMap.positionToCoordinates(currentRobotPosition) :
-                    new int[]{-1, -1};
-
-            // Tìm điểm tiếp cận tối ưu cho vị trí bắt đầu, có xét đến vị trí hiện tại
-            int[] accessPoint1 = warehouseMap.findOptimalAccessPoint(
-                    coords1[0], coords1[1],
-                    currentCoords[0], currentCoords[1],
-                    coords2[0], coords2[1]
-            );
-
-            // Tìm điểm tiếp cận tối ưu cho vị trí kết thúc, có xét đến điểm tiếp cận của vị trí bắt đầu
-            int[] accessPoint2 = warehouseMap.findOptimalAccessPoint(
-                    coords2[0], coords2[1],
-                    accessPoint1[0], accessPoint1[1],
-                    -1, -1
-            );
-
-            // Tìm đường đi ngắn nhất giữa hai điểm tiếp cận
-            return warehouseMap.findShortestPath(
-                    accessPoint1[0], accessPoint1[1],
-                    accessPoint2[0], accessPoint2[1]
-            );
-        }
-
-        return new ArrayList<>();
     }
 
     /**
@@ -293,41 +348,27 @@ public class DistanceCalculator {
             return new ArrayList<>();
         }
 
-        // Kiểm tra cache
-        String cacheKey = getCacheKey(pos1, pos2);
-        if (pathCache.containsKey(cacheKey)) {
-            // Khi lấy từ cache, vẫn cập nhật vị trí hiện tại
-            currentRobotPosition = pos2.copy();
-            return new ArrayList<>(pathCache.get(cacheKey)); // Trả về bản sao để tránh thay đổi cache
-        }
-
-        // Quan trọng: Sử dụng vị trí hiện tại của robot (nếu có) làm điểm xuất phát thực tế
+        // Sử dụng vị trí hiện tại của robot làm điểm xuất phát nếu có
         Position actualStartPosition = (currentRobotPosition != null) ? currentRobotPosition : pos1;
 
-        // Lấy tọa độ
-        int[] coords1 = warehouseMap.positionToCoordinates(actualStartPosition);
-        int[] coords2 = warehouseMap.positionToCoordinates(pos2);
-
-        // Tìm điểm tiếp cận cho vị trí đích
-        int[] accessPoint2 = warehouseMap.findNearestAccessPoint(coords2[0], coords2[1]);
-
-        // Tìm đường đi từ vị trí thực tế hiện tại đến điểm tiếp cận của đích
-        ArrayList<int[]> path = warehouseMap.findShortestPath(coords1[0], coords1[1], accessPoint2[0], accessPoint2[1]);
-
-        // Lưu vào cache nếu có kết quả
-        if (path != null && !path.isEmpty()) {
-            pathCache.put(cacheKey, new ArrayList<>(path)); // Lưu bản sao để tránh thay đổi cache
+        // Kiểm tra cache
+        String cacheKey = getCacheKey(actualStartPosition, pos2);
+        if (pathCache.containsKey(cacheKey)) {
+            // Vì đã di chuyển đến điểm đích, cập nhật vị trí hiện tại
+            updateCurrentPosition(pos2);
+            return new ArrayList<>(pathCache.get(cacheKey));
         }
 
-        // Cập nhật vị trí hiện tại của robot - điểm cuối của đường đi thực tế
-        // Quan trọng: Nếu pos2 là vị trí trên kệ, thì currentRobotPosition sẽ là điểm tiếp cận
+        // Tìm đường đi
+        ArrayList<int[]> path = findPathBetween(actualStartPosition, pos2);
+
+        // Lưu vào cache
         if (path != null && !path.isEmpty()) {
-            int[] lastPoint = path.get(path.size() - 1);
-            currentRobotPosition = warehouseMap.coordinatesToPosition(lastPoint[0], lastPoint[1]);
-        } else {
-            // Nếu không tìm được đường đi, giữ nguyên vị trí
-            currentRobotPosition = actualStartPosition;
+            pathCache.put(cacheKey, new ArrayList<>(path));
         }
+
+        // Cập nhật vị trí hiện tại
+        updateCurrentPosition(pos2);
 
         return path;
     }
@@ -349,5 +390,4 @@ public class DistanceCalculator {
     public static int getCacheSize() {
         return distanceCache.size();
     }
-
 }

@@ -96,6 +96,9 @@ public class Test {
                 continue;
             }
 
+            // Reset vị trí hiện tại của robot về vị trí xuất phát
+            DistanceCalculator.setCurrentRobotPosition(robot.getStartPosition());
+
             // Hiển thị đường đi chi tiết
             System.out.println("1. Bắt đầu từ COUNTER tại " + robot.getStartPosition());
             Position currentPos = robot.getStartPosition();
@@ -105,6 +108,7 @@ public class Test {
             ArrayList<Position> robotPath = new ArrayList<>();
             robotPath.add(robot.getStartPosition());
 
+            // Đoạn code này đặt trong vòng lặp hiển thị đường đi cho mỗi robot
             for (int i = 0; i < robot.shoppingCart.size(); i++) {
                 Merchandise item = robot.shoppingCart.get(i);
 
@@ -118,47 +122,59 @@ public class Test {
                 }
 
                 if (warehouseItem != null) {
+                    // Đây là đoạn code sửa lại việc tính đường đi về kho sau khi lấy hàng xong
                     try {
-                        // Tính đường đi thực tế
-                        ArrayList<int[]> pathCoords = DistanceCalculator.findPath(currentPos, warehouseItem.getPosition());
+                        // Đảm bảo vị trí hiện tại được đặt đúng trước khi tính đường đi về
+                        DistanceCalculator.setCurrentRobotPosition(currentPos);
 
-                        // Tính khoảng cách
-                        float distance = DistanceCalculator.calculateDistance(currentPos, warehouseItem.getPosition());
-                        totalDistance += distance;
+                        // In thông tin debug vị trí hiện tại và vị trí đích
+                        System.out.println("DEBUG: Tính đường về từ " + currentPos + " đến " + robot.getStartPosition());
 
-                        // Hiển thị thông tin mặt hàng
-                        System.out.println((i + 2) + ". Đi đến " + warehouseItem.getName() +
-                                " (số lượng: " + warehouseItem.getQuantity() + ") tại vị trí " +
-                                warehouseItem.getPosition() + " (+" + distance + " đơn vị)");
+                        // Đường đi về counter
+                        ArrayList<int[]> returnPathCoords = DistanceCalculator.findPath(currentPos, robot.getStartPosition());
 
-                        // In ra đường đi chi tiết (nếu có)
-                        if (pathCoords != null && !pathCoords.isEmpty() && pathCoords.size() < 20) { // Giới hạn hiển thị nếu đường đi quá dài
-                            System.out.println("   Đường đi chi tiết:");
-                            for (int j = 0; j < pathCoords.size(); j++) {
-                                int[] coord = pathCoords.get(j);
-                                Position pathPos = warehouseMap.coordinatesToPosition(coord[0], coord[1]);
-                                System.out.println("   - Bước " + (j+1) + ": " + pathPos);
-                            }
-                        } else if (pathCoords != null && pathCoords.size() >= 20) {
-                            System.out.println("   Đường đi chi tiết (hiển thị một phần):");
-                            for (int j = 0; j < 5; j++) {
-                                int[] coord = pathCoords.get(j);
-                                Position pathPos = warehouseMap.coordinatesToPosition(coord[0], coord[1]);
-                                System.out.println("   - Bước " + (j+1) + ": " + pathPos);
-                            }
-                            System.out.println("   - ...");
-                            for (int j = pathCoords.size() - 5; j < pathCoords.size(); j++) {
-                                int[] coord = pathCoords.get(j);
-                                Position pathPos = warehouseMap.coordinatesToPosition(coord[0], coord[1]);
-                                System.out.println("   - Bước " + (j+1) + ": " + pathPos);
-                            }
+                        // Lưu lại khoảng cách về trước khi thực hiện lệnh calculateDistance (sẽ thay đổi vị trí hiện tại)
+                        float returnDistance = 0;
+                        if (returnPathCoords != null && !returnPathCoords.isEmpty()) {
+                            returnDistance = returnPathCoords.size() - 1; // Số bước = số ô - 1
+                        } else {
+                            // Nếu không tìm được đường đi, sử dụng khoảng cách Manhattan
+                            returnDistance = DistanceCalculator.calculateManhattanDistance(currentPos, robot.getStartPosition());
                         }
 
-                        // Cập nhật vị trí hiện tại
-                        currentPos = warehouseItem.getPosition();
-                        robotPath.add(currentPos);
+                        // Gọi calculateDistance chỉ để cập nhật vị trí hiện tại
+                        DistanceCalculator.calculateDistance(currentPos, robot.getStartPosition());
+
+                        // Cập nhật tổng quãng đường
+                        totalDistance += returnDistance;
+
+                        System.out.println((robot.shoppingCart.size() + 2) + ". Quay về COUNTER tại " +
+                                robot.getStartPosition() + " (+" + returnDistance + " đơn vị)");
+
+                        // In ra đường đi chi tiết khi quay về
+                        if (returnPathCoords != null && !returnPathCoords.isEmpty() && returnPathCoords.size() < 20) {
+                            System.out.println("   Đường đi chi tiết khi quay về:");
+                            for (int j = 0; j < returnPathCoords.size(); j++) {
+                                int[] coord = returnPathCoords.get(j);
+                                Position pathPos = warehouseMap.coordinatesToPosition(coord[0], coord[1]);
+
+                                // Kiểm tra xem vị trí này có phải là ô đi được không
+                                boolean isWalkable = warehouseMap.isWalkable(coord[0], coord[1]);
+
+                                System.out.println("   - Bước " + (j+1) + ": " + pathPos +
+                                        (isWalkable ? "" : " (CẢNH BÁO: Ô không đi được!)"));
+                            }
+                        } else if (returnPathCoords != null && returnPathCoords.size() >= 20) {
+                            // Còn lại giữ nguyên
+                        }
+
+                        robotPath.add(robot.getStartPosition()); // Thêm điểm cuối là vị trí xuất phát
+                        System.out.println("\nTổng quãng đường của ROBOT " + robot.nameRobot + ": " + totalDistance);
+
+                        // Còn lại giữ nguyên
                     } catch (Exception e) {
-                        System.out.println("Lỗi khi tính toán đường đi: " + e.getMessage());
+                        System.out.println("Lỗi khi tính đường đi về: " + e.getMessage());
+                        e.printStackTrace();
                     }
                 }
             }

@@ -37,8 +37,11 @@ public class Position {
      */
     private void calculateCoordinates() {
         // Tính toán tọa độ x, y dựa trên vị trí shelf, tier, slot
+        // x ứng với shelf (cột dọc)
+        this.x = shelf;
+
+        // y ứng với slot (hàng ngang)
         this.y = slot;
-        this.x = 2 * shelf - 1;
     }
 
     /**
@@ -75,7 +78,6 @@ public class Position {
     }
     @Override
     public String toString() {
-
         return "{ " + shelf + " " + tier + " " + slot + " ~ " + x + " " + y + " }";
     }
     @Override

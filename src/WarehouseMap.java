@@ -108,15 +108,59 @@ public class WarehouseMap {
     }
 
     /**
-     * Phương thức tương thích ngược để giữ khả năng hoạt động với mã cũ
-     * @param row Hàng của vị trí trên kệ
-     * @param col Cột của vị trí trên kệ
+     * Tìm điểm tiếp cận gần nhất cho một vị trí trên kệ
+     * @param row Hàng của vị trí cần tìm điểm tiếp cận
+     * @param col Cột của vị trí cần tìm điểm tiếp cận
      * @return Mảng int[2] chứa tọa độ [row, col] của điểm tiếp cận
      */
     public int[] findNearestAccessPoint(int row, int col) {
-        return findOptimalAccessPoint(row, col, -1, -1, -1, -1);
-    }
+        // Nếu vị trí đã đi được, trả về chính nó
+        if (isWalkable(row, col)) {
+            return new int[] {row, col};
+        }
 
+        // Bán kính tìm kiếm
+        int maxRadius = Math.max(rows, cols);
+
+        // Các hướng di chuyển: trên, dưới, trái, phải
+        int[][] directions = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
+
+        // Kiểm tra hàng chẵn ở trên và dưới hàng hiện tại
+        // Hàng lẻ là kệ, hàng chẵn là lối đi
+        if (row % 2 == 1) {  // Nếu đang ở hàng lẻ (kệ)
+            // Ưu tiên tìm lối đi ở hàng trên và dưới
+            if (row - 1 >= 0 && isWalkable(row - 1, col)) {
+                return new int[] {row - 1, col};  // Lối đi phía trên
+            }
+            if (row + 1 < rows && isWalkable(row + 1, col)) {
+                return new int[] {row + 1, col};  // Lối đi phía dưới
+            }
+        }
+
+        // Nếu không tìm thấy điểm tiếp cận trực tiếp, thực hiện tìm kiếm bán kính
+        for (int radius = 1; radius <= maxRadius; radius++) {
+            for (int[] dir : directions) {
+                int newRow = row + dir[0] * radius;
+                int newCol = col + dir[1] * radius;
+
+                if (isValidPosition(newRow, newCol) && isWalkable(newRow, newCol)) {
+                    return new int[] {newRow, newCol};
+                }
+            }
+        }
+
+        // Nếu không tìm thấy điểm tiếp cận, trả về vị trí gần nhất có thể đi được
+        for (int i = 0; i < rows; i++) {
+            for (int j = 0; j < cols; j++) {
+                if (isWalkable(i, j)) {
+                    return new int[] {i, j};
+                }
+            }
+        }
+
+        // Trường hợp cực kỳ hiếm: không có ô nào đi được trên bản đồ
+        return new int[] {0, 0};
+    }
     /**
      * Phương thức tương thích ngược với phiên bản cũ có tham số đích
      * @param row Hàng của vị trí trên kệ
@@ -130,7 +174,7 @@ public class WarehouseMap {
     }
 
     /**
-     * Kiểm tra vị trí có hợp lệ không
+     * Kiểm tra xem vị trí có hợp lệ không
      * @param row Hàng
      * @param col Cột
      * @return true nếu vị trí hợp lệ, false nếu không
@@ -146,7 +190,24 @@ public class WarehouseMap {
      * @return true nếu đi được, false nếu không
      */
     public boolean isWalkable(int row, int col) {
-        return getCell(row, col) == 0;
+        // Kiểm tra vị trí hợp lệ trước
+        if (!isValidPosition(row, col)) {
+            return false; // Vị trí không hợp lệ thì không đi được
+        }
+
+        // Vị trí hợp lệ, kiểm tra giá trị trong bản đồ
+        // Giá trị 0 là ô đi được, 1 là ô không đi được (kệ hàng)
+        return map[row][col] == 0;
+    }
+
+    /**
+     * Kiểm tra xem một vị trí trong kho có đi được không
+     * @param position Vị trí cần kiểm tra
+     * @return true nếu đi được, false nếu không
+     */
+    public boolean isPositionWalkable(Position position) {
+        int[] coords = positionToCoordinates(position);
+        return isWalkable(coords[0], coords[1]);
     }
 
     /**
@@ -155,11 +216,40 @@ public class WarehouseMap {
      * @return Mảng 2 phần tử [row, col]
      */
     public int[] positionToCoordinates(Position position) {
-        // Mỗi kệ chiếm 2 dòng (một cho lối đi, một cho kệ)
-        int row = (position.getShelf()-1) * 2 + 1; // kệ nằm ở dòng lẻ
-        int col = position.getSlot();
+        int shelf = position.getShelf();
+        int tier = position.getTier();
+        int slot = position.getSlot();
 
-        return new int[] {row, col};
+        // Điều chỉnh giá trị shelf và slot để không có giá trị âm
+        shelf = Math.max(0, shelf);
+        slot = Math.max(0, slot);
+
+        // Mỗi kệ chiếm 2 dòng (một cho lối đi, một cho kệ)
+        // Kệ 0 đại diện cho lối đi chính (dọc)
+        // Kệ từ 1 trở lên đại diện cho các kệ hàng
+
+        int row;
+        if (shelf == 0) {
+            // Kệ 0 là lối đi dọc (cột 0)
+            row = 0;
+        } else {
+            // Với các kệ từ 1 trở lên
+            if (tier == 0) {
+                // Tier 0 là lối đi ngang
+                row = shelf * 2;
+            } else {
+                // Tier > 0 là vị trí trên kệ
+                row = shelf * 2 - 1;
+            }
+        }
+
+        // Đảm bảo tọa độ nằm trong khoảng hợp lệ
+        if (row < 0) row = 0;
+//        if (col < 0) col = 0;
+        if (row >= rows) row = rows - 1;
+        if (slot >= cols) slot = cols - 1;
+
+        return new int[] {row, slot};  // Sử dụng slot trực tiếp làm cột
     }
 
     /**
@@ -169,13 +259,28 @@ public class WarehouseMap {
      * @return Vị trí trong kho
      */
     public Position coordinatesToPosition(int row, int col) {
-        int shelf = (row / 2) + 1;
-        int tier = 0; // Mặc định tier là 0 vì không thể xác định từ ma trận 2D
+        int shelf;
+        int tier;
+
+        if (row == 0) {
+            // Hàng 0 là lối đi dọc (kệ 0)
+            shelf = 0;
+            tier = 0;
+        } else if (row % 2 == 0) {
+            // Hàng chẵn khác 0 là lối đi ngang
+            shelf = row / 2;
+            tier = 0;
+        } else {
+            // Hàng lẻ là kệ
+            shelf = (row + 1) / 2;
+            tier = 1;  // Mặc định là tier 1 cho vị trí trên kệ
+        }
+
+        // Slot chính là cột
         int slot = col;
 
         return new Position(shelf, tier, slot);
     }
-
     /**
      * Tính đường đi ngắn nhất từ vị trí nguồn đến đích sử dụng thuật toán BFS
      * @param startRow Hàng bắt đầu
@@ -371,36 +476,38 @@ public class WarehouseMap {
      * Tính khoảng cách thực tế giữa hai vị trí trên bản đồ (theo đường đi thực)
      * @param pos1 Vị trí bắt đầu
      * @param pos2 Vị trí kết thúc
-     * @param currentPos Vị trí hiện tại của robot (có thể là null)
      * @return Khoảng cách thực tế (số bước đi)
      */
-    public float calculateActualDistance(Position pos1, Position pos2, Position currentPos) {
+    public float calculateActualDistance(Position pos1, Position pos2) {
         // Chuyển đổi từ Position sang tọa độ 2D
         int[] coords1 = positionToCoordinates(pos1);
         int[] coords2 = positionToCoordinates(pos2);
 
-        // Chuyển đổi vị trí hiện tại (nếu có)
-        int[] currentCoords = currentPos != null ? positionToCoordinates(currentPos) : new int[]{-1, -1};
+        // Tìm điểm tiếp cận cho vị trí bắt đầu nếu không đi được
+        boolean startPointIsShelf = false;
+        if (!isWalkable(coords1[0], coords1[1])) {
+            startPointIsShelf = true;
+            int[] accessCoords = findNearestAccessPoint(coords1[0], coords1[1]);
+            coords1 = accessCoords;
+        }
 
-        // Tìm điểm tiếp cận tối ưu, có xét đến vị trí hiện tại và đích
-        int[] accessPoint1 = findOptimalAccessPoint(coords1[0], coords1[1],
-                currentCoords[0], currentCoords[1],
-                coords2[0], coords2[1]);
-
-        int[] accessPoint2 = findOptimalAccessPoint(coords2[0], coords2[1],
-                accessPoint1[0], accessPoint1[1],
-                -1, -1);
+        // Tìm điểm tiếp cận cho vị trí kết thúc nếu không đi được
+        boolean endPointIsShelf = false;
+        if (!isWalkable(coords2[0], coords2[1])) {
+            endPointIsShelf = true;
+            int[] accessCoords = findNearestAccessPoint(coords2[0], coords2[1]);
+            coords2 = accessCoords;
+        }
 
         // Tìm đường đi ngắn nhất giữa hai điểm tiếp cận
-        ArrayList<int[]> path = findShortestPath(accessPoint1[0], accessPoint1[1],
-                accessPoint2[0], accessPoint2[1]);
+        ArrayList<int[]> path = findShortestPath(coords1[0], coords1[1], coords2[0], coords2[1]);
 
         // Nếu không tìm thấy đường đi
         if (path.isEmpty()) {
-            // Trả về khoảng cách Manhattan như cũ
+            // Trả về khoảng cách Manhattan
             int xDiff = Math.abs(pos1.x - pos2.x);
             int yDiff = Math.abs(pos1.y - pos2.y);
-            float tierDistance = 0.5f * (pos1.getTier() + pos2.getTier() - 2);
+            float tierDistance = 0.5f * Math.max(0, (pos1.getTier() + pos2.getTier() - 2));
             return xDiff + yDiff + tierDistance;
         }
 
@@ -408,34 +515,15 @@ public class WarehouseMap {
         float distance = path.size() - 1; // Số bước đi = số ô - 1
 
         // Thêm khoảng cách từ điểm trên kệ đến điểm tiếp cận (thường là 0.5 đơn vị)
-        // Chỉ cộng thêm nếu điểm tiếp cận khác với điểm ban đầu
-        if (coords1[0] != accessPoint1[0] || coords1[1] != accessPoint1[1]) {
-            distance += 0.5f; // Khoảng cách để lấy/đặt hàng từ kệ
+        if (startPointIsShelf) {
+            distance += 0.5f;
         }
 
-        if (coords2[0] != accessPoint2[0] || coords2[1] != accessPoint2[1]) {
-            distance += 0.5f; // Khoảng cách để lấy/đặt hàng từ kệ
+        if (endPointIsShelf) {
+            distance += 0.5f;
         }
 
-        // Thêm khoảng cách theo tầng
-        float tierDistance = 0;
-        if (pos1.getShelf() == pos2.getShelf() && pos1.getSlot() == pos2.getSlot()) {
-            tierDistance = 0.5f * Math.abs(pos1.getTier() - pos2.getTier());
-        } else {
-            tierDistance = 0.5f * (pos1.getTier() + pos2.getTier() - 2);
-        }
-
-        return distance + tierDistance;
-    }
-
-    /**
-     * Phương thức tương thích ngược để giữ khả năng hoạt động với mã cũ
-     * @param pos1 Vị trí bắt đầu
-     * @param pos2 Vị trí kết thúc
-     * @return Khoảng cách thực tế (số bước đi)
-     */
-    public float calculateActualDistance(Position pos1, Position pos2) {
-        return calculateActualDistance(pos1, pos2, null);
+        return distance;
     }
 
     /**

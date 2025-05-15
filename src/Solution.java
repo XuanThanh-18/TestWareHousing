@@ -226,26 +226,35 @@ public class Solution {
         ArrayList<Merchandise> remaining = new ArrayList<>(route);
 
         // Bắt đầu từ vị trí xuất phát của robot
-        Position currentPos = robots.get(robotIndex).getStartPosition();
+        Position startPosition = robots.get(robotIndex).getStartPosition();
+        // Đặt vị trí hiện tại của robot
+        DistanceCalculator.setCurrentRobotPosition(startPosition);
+
+        // Vị trí hiện tại
+        Position currentPos = startPosition;
 
         while (!remaining.isEmpty()) {
             // Tìm mặt hàng gần nhất từ vị trí hiện tại
             Merchandise closest = null;
             float minDistance = Float.MAX_VALUE;
-            Position bestPosition = null;
 
             for (Merchandise item : remaining) {
                 Merchandise warehouseItem = findInWarehouse(item, warehousing);
                 if (warehouseItem != null) {
-                    // Xét tất cả vị trí có thể của mặt hàng
-                    ArrayList<Position> allPositions = warehouseItem.getAllPositions();
-                    for (Position pos : allPositions) {
-                        float distance = DistanceCalculator.calculateDistance(currentPos, pos);
-                        if (distance < minDistance) {
-                            minDistance = distance;
-                            closest = item;
-                            bestPosition = pos;
-                        }
+                    // Tính khoảng cách từ vị trí hiện tại đến mặt hàng
+                    float distance = DistanceCalculator.calculateDistance(currentPos, warehouseItem.getPosition());
+
+                    // Lưu lại vị trí hiện tại của robot
+                    Position tempPosition = DistanceCalculator.getCurrentRobotPosition();
+
+                    // Đặt lại vị trí hiện tại để tính toán cho mặt hàng tiếp theo
+                    DistanceCalculator.setCurrentRobotPosition(currentPos);
+
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        closest = item;
+                        // Lưu lại vị trí mới sau khi đến mặt hàng này
+                        currentPos = tempPosition;
                     }
                 }
             }
@@ -254,15 +263,20 @@ public class Solution {
                 optimizedRoute.add(closest);
                 remaining.remove(closest);
 
-                // Cập nhật vị trí hiện tại
-                currentPos = bestPosition;
+                // Đặt vị trí hiện tại của robot là vị trí sau khi đến mặt hàng gần nhất
+                DistanceCalculator.setCurrentRobotPosition(currentPos);
+            } else {
+                // Nếu không tìm thấy mặt hàng nào, thoát khỏi vòng lặp
+                break;
             }
         }
 
         // Cập nhật tuyến đường
         robotRoutes.set(robotIndex, optimizedRoute);
-    }
 
+        // Đặt lại vị trí hiện tại về vị trí xuất phát
+        DistanceCalculator.setCurrentRobotPosition(startPosition);
+    }
     /**
      * Tìm mặt hàng trong kho
      * @param item Mặt hàng cần tìm
