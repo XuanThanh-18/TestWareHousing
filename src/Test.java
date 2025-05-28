@@ -1,40 +1,17 @@
 import java.util.ArrayList;
 
 /**
- * Lớp Test thực hiện thuật toán tìm đường đi ngắn nhất cho robot
- * sử dụng PSO kết hợp VNS trên bản đồ kho hàng
+ * Test đơn giản cho cấu trúc kho mới
+ * Mỗi ô hàng chỉ có 1 điểm tiếp cận duy nhất
  */
 public class Test {
     public static void main(String[] args) {
+        System.out.println("=== TEST CẤU TRÚC KHO MỚI ===");
+
         // Đọc tham số từ file
         Params.ReadParams();
 
-        // Đảm bảo tham số ROBOTS luôn lớn hơn 0
-        if (Params.ROBOTS <= 0) {
-            System.out.println("Số robot <= 0, đặt lại thành 2");
-            Params.ROBOTS = 2;
-        }
-
-        // In thông tin cấu hình
-        System.out.println("=== THÔNG TIN CẤU HÌNH ===");
-        Params.printWarehouseMap();
-        Params.printWarehouse();
-        Params.printRequiredItems();
-
-        // Khởi tạo kho hàng
-        ArrayList<Merchandise> warehousing = WareHousing.setWareHousing();
-
-        // Định nghĩa vị trí counter [0,0]
-        Position counterPosition = new Position(0, 0, 0);
-        System.out.println("\nVị trí Counter (xuất phát): " + counterPosition);
-
-        // Kiểm tra nếu không có mặt hàng nào cần lấy
-        if (Params.REQUIRE == null || Params.REQUIRE.isEmpty()) {
-            System.out.println("CẢNH BÁO: Không có mặt hàng nào cần lấy. Hãy kiểm tra file input.");
-            return;
-        }
-
-        // Tạo bản đồ kho hàng từ dữ liệu đọc được
+        // Tạo bản đồ kho hàng
         WarehouseMap warehouseMap;
         if (Params.WAREHOUSE_MAP != null) {
             warehouseMap = new WarehouseMap(Params.WAREHOUSE_MAP);
@@ -46,230 +23,202 @@ public class Test {
         System.out.println("\n=== BẢN ĐỒ KHO HÀNG ===");
         warehouseMap.printMap();
 
-        // Khởi tạo trình tính khoảng cách với bản đồ
-        System.out.println("\nĐang khởi tạo bộ tính khoảng cách...");
+        // Khởi tạo DistanceCalculator
         DistanceCalculator.initialize(warehouseMap);
 
-        // Tính trước tất cả khoảng cách (một lần ở đầu chương trình)
-        System.out.println("Đang tính trước các khoảng cách để tối ưu hiệu suất...");
-        long precomputeStartTime = System.currentTimeMillis();
-        DistanceCalculator.precomputeAllDistances(warehousing, counterPosition);
-        long precomputeEndTime = System.currentTimeMillis();
-        System.out.println("Đã hoàn thành tính trước khoảng cách trong " +
-                (precomputeEndTime - precomputeStartTime) + " ms");
+        // Test các vị trí mặt hàng và điểm tiếp cận
+        System.out.println("\n=== TEST ĐIỂM TIẾP CẬN ===");
+        testAccessPoints(warehouseMap);
 
-        // Tạo một cá thể
-        Individual individual = new Individual();
+        // Test đường đi
+        System.out.println("\n=== TEST ĐƯỜNG ĐI ===");
+        testPaths(warehouseMap);
 
-        // Thực hiện thuật toán PSO-VNS
-        System.out.println("\n==================================================");
-        System.out.println("THUẬT TOÁN PSO-VNS TÌM ĐƯỜNG ĐI NGẮN NHẤT CHO ROBOT");
-        System.out.println("==================================================");
+        // Test với mặt hàng thực tế
+        System.out.println("\n=== TEST VỚI MẶT HÀNG THỰC TẾ ===");
+        testWithRealMerchandise(warehouseMap);
+    }
 
-        // Thực thi thuật toán PSO-VNS với vị trí counter
-        float psoVnsDistance = 0;
-        long startTime = System.currentTimeMillis();
-        try {
-            psoVnsDistance = individual.solvePsoVns(counterPosition, warehousing);
-        } catch (Exception e) {
-            System.out.println("Lỗi khi thực hiện PSO-VNS: " + e.getMessage());
-            e.printStackTrace();
+    private static void testAccessPoints(WarehouseMap map) {
+        // Test các vị trí kệ hàng
+        Position[] testPositions = {
+                new Position(1, 1, 1), // Kệ 1, tầng 1, ô 1
+                new Position(1, 1, 2), // Kệ 1, tầng 1, ô 2
+                new Position(1, 2, 1), // Kệ 1, tầng 2, ô 1
+                new Position(2, 1, 3), // Kệ 2, tầng 1, ô 3
+                new Position(2, 2, 4)  // Kệ 2, tầng 2, ô 4
+        };
+
+        for (Position pos : testPositions) {
+            System.out.println("\nVị trí mặt hàng: " + pos);
+
+            int[] coords = map.positionToCoordinates(pos);
+            System.out.println("Tọa độ trên bản đồ: [" + coords[0] + ", " + coords[1] + "]");
+            System.out.println("Có thể đi được: " + map.isWalkable(coords[0], coords[1]));
+
+            int[] accessPoint = map.findUniqueAccessPoint(coords[0], coords[1]);
+            Position accessPos = map.coordinatesToPosition(accessPoint[0], accessPoint[1]);
+            System.out.println("Điểm tiếp cận: " + accessPos + " tại tọa độ [" + accessPoint[0] + ", " + accessPoint[1] + "]");
+            System.out.println("Điểm tiếp cận có thể đi được: " + map.isWalkable(accessPoint[0], accessPoint[1]));
+        }
+    }
+
+    private static void testPaths(WarehouseMap map) {
+        Position counter = new Position(0, 0, 0);
+        Position item1 = new Position(1, 1, 2); // Kệ 1, tầng 1, ô 2
+        Position item2 = new Position(2, 2, 3); // Kệ 2, tầng 2, ô 3
+
+        System.out.println("Counter: " + counter);
+        System.out.println("Mặt hàng 1: " + item1);
+        System.out.println("Mặt hàng 2: " + item2);
+
+        // Test đường đi từ counter đến mặt hàng 1
+        testSinglePath(map, counter, item1, "Counter đến Mặt hàng 1");
+
+        // Test đường đi từ mặt hàng 1 đến mặt hàng 2
+        testSinglePath(map, item1, item2, "Mặt hàng 1 đến Mặt hàng 2");
+
+        // Test đường đi từ mặt hàng 2 về counter
+        testSinglePath(map, item2, counter, "Mặt hàng 2 về Counter");
+    }
+
+    private static void testSinglePath(WarehouseMap map, Position start, Position end, String description) {
+        System.out.println("\n--- " + description + " ---");
+
+        int[] startCoords = map.positionToCoordinates(start);
+        int[] endCoords = map.positionToCoordinates(end);
+
+        int[] startAccess = map.findUniqueAccessPoint(startCoords[0], startCoords[1]);
+        int[] endAccess = map.findUniqueAccessPoint(endCoords[0], endCoords[1]);
+
+        System.out.println("Từ: " + start + " (điểm tiếp cận: [" + startAccess[0] + ", " + startAccess[1] + "])");
+        System.out.println("Đến: " + end + " (điểm tiếp cận: [" + endAccess[0] + ", " + endAccess[1] + "])");
+
+        ArrayList<int[]> path = map.findShortestPath(startAccess[0], startAccess[1], endAccess[0], endAccess[1]);
+
+        if (path != null && !path.isEmpty()) {
+            System.out.println("Số bước đi: " + (path.size() - 1));
+            float actualDistance = map.calculateActualDistance(start, end);
+            System.out.println("Khoảng cách thực tế: " + actualDistance);
+
+            // Hiển thị đường đi ngắn
+            if (path.size() <= 10) {
+                System.out.println("Đường đi chi tiết:");
+                for (int i = 0; i < path.size(); i++) {
+                    int[] coord = path.get(i);
+                    Position pathPos = map.coordinatesToPosition(coord[0], coord[1]);
+                    System.out.println("  Bước " + (i+1) + ": [" + coord[0] + ", " + coord[1] + "] -> " + pathPos);
+                }
+            } else {
+                System.out.println("Đường đi quá dài (" + path.size() + " bước), chỉ hiển thị đầu và cuối:");
+                for (int i = 0; i < 3; i++) {
+                    int[] coord = path.get(i);
+                    Position pathPos = map.coordinatesToPosition(coord[0], coord[1]);
+                    System.out.println("  Bước " + (i+1) + ": [" + coord[0] + ", " + coord[1] + "] -> " + pathPos);
+                }
+                System.out.println("  ...");
+                for (int i = path.size() - 3; i < path.size(); i++) {
+                    int[] coord = path.get(i);
+                    Position pathPos = map.coordinatesToPosition(coord[0], coord[1]);
+                    System.out.println("  Bước " + (i+1) + ": [" + coord[0] + ", " + coord[1] + "] -> " + pathPos);
+                }
+            }
+
+            // Hiển thị đường đi trên bản đồ nếu ngắn
+            if (path.size() <= 15) {
+                System.out.println("Đường đi trên bản đồ:");
+                map.printPathOnMap(path);
+            }
+        } else {
+            System.out.println("KHÔNG TÌM THẤY ĐƯỜNG ĐI!");
+        }
+    }
+
+    private static void testWithRealMerchandise(WarehouseMap map) {
+        if (Params.WAREHOUSE == null || Params.WAREHOUSE.isEmpty()) {
+            System.out.println("Không có mặt hàng nào để test");
             return;
         }
-        long endTime = System.currentTimeMillis();
-        long executionTime = endTime - startTime;
 
-        System.out.println("\n==================================================");
-        System.out.println("TỔNG CHI PHÍ QUÃNG ĐƯỜNG PSO-VNS: " + psoVnsDistance);
-        System.out.println("THỜI GIAN THỰC THI: " + executionTime + " ms");
-        System.out.println("SỐ LƯỢNG KHOẢNG CÁCH ĐÃ TÍNH: " + DistanceCalculator.getCacheSize());
-        System.out.println("==================================================");
+        // Khởi tạo DistanceCalculator với precompute
+        Position counter = new Position(0, 0, 0);
+        DistanceCalculator.precomputeAllDistances(Params.WAREHOUSE, counter);
 
-        // In thông tin chi tiết đường đi cho mỗi robot
-        System.out.println("\nCHI TIẾT ĐƯỜNG ĐI CỦA CÁC ROBOT:");
-        for (Robot robot : individual.robots) {
-            System.out.println("\n--- ROBOT " + robot.nameRobot + " ---");
-            System.out.println("Vị trí xuất phát: " + robot.getStartPosition());
+        System.out.println("Có " + Params.WAREHOUSE.size() + " mặt hàng trong kho:");
 
-            if (robot.shoppingCart.isEmpty()) {
-                System.out.println("Không có mặt hàng nào được phân công");
-                continue;
-            }
+        // Hiển thị thông tin chi tiết của một vài mặt hàng
+        for (int i = 0; i < Math.min(5, Params.WAREHOUSE.size()); i++) {
+            Merchandise item = Params.WAREHOUSE.get(i);
+            System.out.println("\n--- Mặt hàng " + (i+1) + " ---");
+            item.printDetailedInfo(map);
 
-            // Reset vị trí hiện tại của robot về vị trí xuất phát
-            DistanceCalculator.setCurrentRobotPosition(robot.getStartPosition());
+            // Test khoảng cách từ counter
+            DistanceCalculator.setCurrentRobotPosition(counter);
+            float distance = DistanceCalculator.calculateDistance(counter, item.getPosition());
+            System.out.println("Khoảng cách từ Counter: " + distance);
+        }
 
-            // Hiển thị đường đi chi tiết
-            System.out.println("1. Bắt đầu từ COUNTER tại " + robot.getStartPosition());
-            Position currentPos = robot.getStartPosition();
-            float totalDistance = 0;
+        // Test khoảng cách giữa các mặt hàng
+        if (Params.WAREHOUSE.size() >= 2) {
+            System.out.println("\n--- TEST KHOẢNG CÁCH GIỮA CÁC MẶT HÀNG ---");
+            Merchandise item1 = Params.WAREHOUSE.get(0);
+            Merchandise item2 = Params.WAREHOUSE.get(1);
 
-            // Lưu trữ đường đi chi tiết để hiển thị trên bản đồ
-            ArrayList<Position> robotPath = new ArrayList<>();
-            robotPath.add(robot.getStartPosition());
+            DistanceCalculator.setCurrentRobotPosition(item1.getPosition());
+            float distance = DistanceCalculator.calculateDistance(item1.getPosition(), item2.getPosition());
 
-            // Đoạn code này đặt trong vòng lặp hiển thị đường đi cho mỗi robot
-            for (int i = 0; i < robot.shoppingCart.size(); i++) {
-                Merchandise item = robot.shoppingCart.get(i);
+            System.out.println("Từ: " + item1.getName() + " " + item1.getPosition());
+            System.out.println("Đến: " + item2.getName() + " " + item2.getPosition());
+            System.out.println("Khoảng cách: " + distance);
+        }
 
-                // Tìm vị trí trong kho
-                Merchandise warehouseItem = null;
-                for (Merchandise w : warehousing) {
-                    if (w.getName().equals(item.getName())) {
-                        warehouseItem = w;
-                        break;
-                    }
-                }
+        // Hiển thị thông tin cache
+        DistanceCalculator.printCacheInfo();
 
-                if (warehouseItem != null) {
-                    // Đây là đoạn code sửa lại việc tính đường đi về kho sau khi lấy hàng xong
-                    try {
-                        // Đảm bảo vị trí hiện tại được đặt đúng trước khi tính đường đi về
-                        DistanceCalculator.setCurrentRobotPosition(currentPos);
+        // Test một tuyến đường đơn giản
+        if (Params.REQUIRE != null && !Params.REQUIRE.isEmpty()) {
+            System.out.println("\n--- TEST TUYẾN ĐƯỜNG ĐƠN GIẢN ---");
+            testSimpleRoute(map, counter);
+        }
+    }
 
-                        // In thông tin debug vị trí hiện tại và vị trí đích
-                        System.out.println("DEBUG: Tính đường về từ " + currentPos + " đến " + robot.getStartPosition());
+    private static void testSimpleRoute(WarehouseMap map, Position counter) {
+        System.out.println("Test tuyến đường cho " + Math.min(3, Params.REQUIRE.size()) + " mặt hàng đầu tiên:");
 
-                        // Đường đi về counter
-                        ArrayList<int[]> returnPathCoords = DistanceCalculator.findPath(currentPos, robot.getStartPosition());
+        DistanceCalculator.setCurrentRobotPosition(counter);
+        Position currentPos = counter;
+        float totalDistance = 0;
 
-                        // Lưu lại khoảng cách về trước khi thực hiện lệnh calculateDistance (sẽ thay đổi vị trí hiện tại)
-                        float returnDistance = 0;
-                        if (returnPathCoords != null && !returnPathCoords.isEmpty()) {
-                            returnDistance = returnPathCoords.size() - 1; // Số bước = số ô - 1
-                        } else {
-                            // Nếu không tìm được đường đi, sử dụng khoảng cách Manhattan
-                            returnDistance = DistanceCalculator.calculateManhattanDistance(currentPos, robot.getStartPosition());
-                        }
+        System.out.println("1. Bắt đầu từ Counter: " + counter);
 
-                        // Gọi calculateDistance chỉ để cập nhật vị trí hiện tại
-                        DistanceCalculator.calculateDistance(currentPos, robot.getStartPosition());
+        for (int i = 0; i < Math.min(3, Params.REQUIRE.size()); i++) {
+            Merchandise reqItem = Params.REQUIRE.get(i);
 
-                        // Cập nhật tổng quãng đường
-                        totalDistance += returnDistance;
-
-                        System.out.println((robot.shoppingCart.size() + 2) + ". Quay về COUNTER tại " +
-                                robot.getStartPosition() + " (+" + returnDistance + " đơn vị)");
-
-                        // In ra đường đi chi tiết khi quay về
-                        if (returnPathCoords != null && !returnPathCoords.isEmpty() && returnPathCoords.size() < 20) {
-                            System.out.println("   Đường đi chi tiết khi quay về:");
-                            for (int j = 0; j < returnPathCoords.size(); j++) {
-                                int[] coord = returnPathCoords.get(j);
-                                Position pathPos = warehouseMap.coordinatesToPosition(coord[0], coord[1]);
-
-                                // Kiểm tra xem vị trí này có phải là ô đi được không
-                                boolean isWalkable = warehouseMap.isWalkable(coord[0], coord[1]);
-
-                                System.out.println("   - Bước " + (j+1) + ": " + pathPos +
-                                        (isWalkable ? "" : " (CẢNH BÁO: Ô không đi được!)"));
-                            }
-                        } else if (returnPathCoords != null && returnPathCoords.size() >= 20) {
-                            // Còn lại giữ nguyên
-                        }
-
-                        robotPath.add(robot.getStartPosition()); // Thêm điểm cuối là vị trí xuất phát
-                        System.out.println("\nTổng quãng đường của ROBOT " + robot.nameRobot + ": " + totalDistance);
-
-                        // Còn lại giữ nguyên
-                    } catch (Exception e) {
-                        System.out.println("Lỗi khi tính đường đi về: " + e.getMessage());
-                        e.printStackTrace();
-                    }
+            // Tìm mặt hàng trong kho
+            Merchandise warehouseItem = null;
+            for (Merchandise item : Params.WAREHOUSE) {
+                if (item.getName().equals(reqItem.getName())) {
+                    warehouseItem = item;
+                    break;
                 }
             }
 
-            try {
-                // Đường đi về counter
-                ArrayList<int[]> returnPathCoords = DistanceCalculator.findPath(currentPos, robot.getStartPosition());
-                float returnDistance = DistanceCalculator.calculateDistance(currentPos, robot.getStartPosition());
-                totalDistance += returnDistance;
+            if (warehouseItem != null) {
+                float distance = DistanceCalculator.calculateDistance(currentPos, warehouseItem.getPosition());
+                totalDistance += distance;
+                currentPos = DistanceCalculator.getCurrentRobotPosition();
 
-                System.out.println((robot.shoppingCart.size() + 2) + ". Quay về COUNTER tại " +
-                        robot.getStartPosition() + " (+" + returnDistance + " đơn vị)");
-
-                // In ra đường đi chi tiết khi quay về
-                if (returnPathCoords != null && !returnPathCoords.isEmpty() && returnPathCoords.size() < 20) {
-                    System.out.println("   Đường đi chi tiết khi quay về:");
-                    for (int j = 0; j < returnPathCoords.size(); j++) {
-                        int[] coord = returnPathCoords.get(j);
-                        Position pathPos = warehouseMap.coordinatesToPosition(coord[0], coord[1]);
-                        System.out.println("   - Bước " + (j+1) + ": " + pathPos);
-                    }
-                } else if (returnPathCoords != null && returnPathCoords.size() >= 20) {
-                    System.out.println("   Đường đi chi tiết khi quay về (hiển thị một phần):");
-                    for (int j = 0; j < 5; j++) {
-                        int[] coord = returnPathCoords.get(j);
-                        Position pathPos = warehouseMap.coordinatesToPosition(coord[0], coord[1]);
-                        System.out.println("   - Bước " + (j+1) + ": " + pathPos);
-                    }
-                    System.out.println("   - ...");
-                    for (int j = returnPathCoords.size() - 5; j < returnPathCoords.size(); j++) {
-                        int[] coord = returnPathCoords.get(j);
-                        Position pathPos = warehouseMap.coordinatesToPosition(coord[0], coord[1]);
-                        System.out.println("   - Bước " + (j+1) + ": " + pathPos);
-                    }
-                }
-
-                robotPath.add(robot.getStartPosition()); // Thêm điểm cuối là vị trí xuất phát
-                System.out.println("\nTổng quãng đường của ROBOT " + robot.nameRobot + ": " + totalDistance);
-
-                // Hiển thị đường đi trên bản đồ
-                System.out.println("\nĐường đi của ROBOT " + robot.nameRobot + " trên bản đồ:");
-
-                // Chuyển đổi danh sách Position thành tọa độ trên bản đồ
-                ArrayList<int[]> fullPath = new ArrayList<>();
-                for (Position pos : robotPath) {
-                    int[] coords = warehouseMap.positionToCoordinates(pos);
-                    fullPath.add(coords);
-                }
-
-                // In đường đi trên bản đồ
-                warehouseMap.printPathOnMap(fullPath);
-            } catch (Exception e) {
-                System.out.println("Lỗi khi tính đường đi về: " + e.getMessage());
+                System.out.println((i+2) + ". Đến " + warehouseItem.getName() + " tại " +
+                        warehouseItem.getPosition() + " (+" + distance + " đơn vị)");
             }
         }
 
-        // Thực hiện thuật toán Greedy để so sánh
-        System.out.println("\n==================================================");
-        System.out.println("SO SÁNH VỚI THUẬT TOÁN GREEDY");
-        System.out.println("==================================================");
+        // Quay về counter
+        float returnDistance = DistanceCalculator.calculateDistance(currentPos, counter);
+        totalDistance += returnDistance;
 
-        float greedyDistance = 0;
-        long greedyStartTime = System.currentTimeMillis();
-        try {
-            greedyDistance = individual.greedy(counterPosition, warehousing);
-        } catch (Exception e) {
-            System.out.println("Lỗi khi thực hiện Greedy: " + e.getMessage());
-            e.printStackTrace();
-        }
-        long greedyEndTime = System.currentTimeMillis();
-        long greedyExecutionTime = greedyEndTime - greedyStartTime;
-
-        System.out.println("\n==================================================");
-        System.out.println("KẾT QUẢ SO SÁNH:");
-        System.out.println("- Quãng đường PSO-VNS: " + psoVnsDistance + " (thực thi trong " + executionTime + " ms)");
-        System.out.println("- Quãng đường Greedy: " + greedyDistance + " (thực thi trong " + greedyExecutionTime + " ms)");
-
-        // Tính phần trăm cải thiện, tránh chia cho 0
-        float improvement = 0;
-        try {
-            if (greedyDistance > 0) {
-                improvement = ((greedyDistance - psoVnsDistance) / greedyDistance) * 100;
-            } else if (psoVnsDistance < greedyDistance) {
-                improvement = 100; // Nếu greedyDistance là 0 và psoVnsDistance < 0, giả sử cải thiện 100%
-            } else if (psoVnsDistance > greedyDistance) {
-                improvement = -100; // Nếu greedyDistance là 0 và psoVnsDistance > 0, giả sử kém hơn 100%
-            }
-        } catch (Exception e) {
-            System.out.println("Lỗi khi tính phần trăm cải thiện: " + e.getMessage());
-        }
-
-        System.out.println("- Cải thiện: " + String.format("%.2f", improvement) + "%");
-        System.out.println("==================================================");
-
-        // In thông tin về cache khoảng cách
-        System.out.println("\nSố khoảng cách đã tính và lưu trong cache: " + DistanceCalculator.getCacheSize());
+        System.out.println((Math.min(3, Params.REQUIRE.size()) + 2) + ". Quay về Counter " +
+                counter + " (+" + returnDistance + " đơn vị)");
+        System.out.println("TỔNG QUÃNG ĐƯỜNG: " + totalDistance);
     }
 }
