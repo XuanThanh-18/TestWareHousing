@@ -4,7 +4,6 @@ import java.util.Map;
 
 /**
  * Lớp DistanceCalculator tính toán khoảng cách giữa các vị trí trong kho hàng
- * Được đơn giản hóa cho cấu trúc kho mới: mỗi ô hàng có 1 điểm tiếp cận duy nhất
  */
 public class DistanceCalculator {
     private static WarehouseMap warehouseMap;

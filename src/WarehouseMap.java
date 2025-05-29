@@ -19,22 +19,11 @@ public class WarehouseMap {
         this.cols = (rows > 0) ? map[0].length : 0;
     }
 
-    public int getCell(int row, int col) {
-        if (isValidPosition(row, col)) {
-            return map[row][col];
-        }
-        return 1;
-    }
-
     /**
      * Tìm điểm tiếp cận DUY NHẤT cho một ô hàng
      * Với cấu trúc kho mới, mỗi ô hàng chỉ có 1 điểm tiếp cận
      */
     public int[] findUniqueAccessPoint(int row, int col) {
-        // Nếu vị trí đã đi được, trả về chính nó
-        if (isWalkable(row, col)) {
-            return new int[] {row, col};
-        }
 
         // Xác định điểm tiếp cận duy nhất dựa trên vị trí trong khối kệ
         // Cấu trúc kho:
@@ -54,38 +43,28 @@ public class WarehouseMap {
             return new int[] {row + 1, col};
         }
 
-        // Trường hợp đặc biệt: nếu không xác định được, tìm điểm gần nhất
-        int[][] directions = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
-        for (int[] dir : directions) {
-            int newRow = row + dir[0];
-            int newCol = col + dir[1];
-            if (isValidPosition(newRow, newCol) && isWalkable(newRow, newCol)) {
-                return new int[] {newRow, newCol};
-            }
-        }
+//        // Trường hợp đặc biệt: nếu không xác định được, tìm điểm gần nhất
+//        int[][] directions = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
+//        for (int[] dir : directions) {
+//            int newRow = row + dir[0];
+//            int newCol = col + dir[1];
+//            if (isValidPosition(newRow, newCol) && isWalkable(newRow, newCol)) {
+//                return new int[] {newRow, newCol};
+//            }
+//        }
 
         return new int[] {row, col};
     }
 
     /**
-     * Các phương thức tương thích ngược
+     * Kiểm tra xem vị trí có hợp lệ
      */
-    public int[] findNearestAccessPoint(int row, int col) {
-        return findUniqueAccessPoint(row, col);
-    }
-
-    public int[] findNearestAccessPoint(int row, int col, int targetRow, int targetCol) {
-        return findUniqueAccessPoint(row, col);
-    }
-
-    public int[] findOptimalAccessPoint(int row, int col, int currentRow, int currentCol, int targetRow, int targetCol) {
-        return findUniqueAccessPoint(row, col);
-    }
-
     public boolean isValidPosition(int row, int col) {
         return row >= 0 && row < rows && col >= 0 && col < cols;
     }
-
+    /**
+     * Kiểm tra xem ô có thể đi hay không
+     * */
     public boolean isWalkable(int row, int col) {
         if (!isValidPosition(row, col)) {
             return false;
@@ -93,65 +72,22 @@ public class WarehouseMap {
         return map[row][col] == 0;
     }
 
-    public boolean isPositionWalkable(Position position) {
-        int[] coords = positionToCoordinates(position);
-        return isWalkable(coords[0], coords[1]);
-    }
-
     /**
      * Chuyển đổi từ vị trí (shelf, tier, slot) thành tọa độ 2D
-     * Cấu trúc đơn giản hơn:
-     * - Shelf 0: Counter (vị trí [0,0])
-     * - Shelf 1: Khối kệ 1 (hàng 1-2)
-     * - Shelf 2: Khối kệ 2 (hàng 4-5)
-     * - Tier 1: Hàng trên của khối kệ
-     * - Tier 2: Hàng dưới của khối kệ
-     * - Slot: Cột (1-4 tương ứng cột 1-4)
      */
     public int[] positionToCoordinates(Position position) {
         int shelf = position.getShelf();
-        int tier = position.getTier();
-        int slot = position.getSlot();
-
-        // Counter
-        if (shelf == 0) {
-            return new int[] {0, 0};
-        }
-
-        // Tính hàng dựa trên shelf và tier
-        int baseRow = (shelf - 1) * 3 + 1; // Khối kệ bắt đầu từ hàng 1, 4, 7, ...
-        int row = baseRow + (tier - 1);     // tier 1 -> hàng baseRow, tier 2 -> hàng baseRow+1
-
-        // Cột trực tiếp từ slot
-        int col = slot;
-
-        // Đảm bảo trong phạm vi hợp lệ
-        row = Math.max(0, Math.min(row, rows - 1));
-        col = Math.max(0, Math.min(col, cols - 1));
-
-        return new int[] {row, col};
+        int row = shelf + ((shelf-1)/2);
+        return new int[] {row, position.getSlot()};
     }
 
     /**
      * Chuyển đổi từ tọa độ 2D thành vị trí
      */
     public Position coordinatesToPosition(int row, int col) {
-        // Counter
-        if (row == 0 && col == 0) {
-            return new Position(0, 0, 0);
-        }
-
-        // Lối đi ngang
-        if (row % 3 == 0 && row > 0) {
-            return new Position(0, 0, col); // Vị trí lối đi
-        }
-
         // Kệ hàng
-        int shelf = (row - 1) / 3 + 1;
-        int tier = (row - 1) % 3 + 1;
-        int slot = col;
-
-        return new Position(shelf, tier, slot);
+        int shelf =  row - ( ( row - 1 ) / 3 ) ;
+        return new Position(shelf, 0, col);
     }
 
     /**
