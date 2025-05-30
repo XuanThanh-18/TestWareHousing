@@ -1,0 +1,125 @@
+6 2 8 15 8 20
+MAP_START
+0 0 0 0 0 0 0 0
+0 1 1 1 1 1 1 0
+0 1 1 1 1 1 1 0
+0 0 0 0 0 0 0 0
+0 1 1 1 1 1 1 0
+0 1 1 1 1 1 1 0
+0 0 0 0 0 0 0 0
+0 1 1 1 1 1 1 0
+0 1 1 1 1 1 1 0
+0 0 0 0 0 0 0 0
+0 1 1 1 1 1 1 0
+0 1 1 1 1 1 1 0
+0 0 0 0 0 0 0 0
+0 1 1 1 1 1 1 0
+0 1 1 1 1 1 1 0
+0 0 0 0 0 0 0 0
+0 1 1 1 1 1 1 0
+0 1 1 1 1 1 1 0
+0 0 0 0 0 0 0 0
+MAP_END
+WAREHOUSE_START
+ItemA 8 1 1 1
+ItemA 6 1 1 2
+ItemB 10 1 1 3
+ItemB 7 1 1 4
+ItemC 12 1 1 5
+ItemC 9 1 1 6
+ItemD 15 1 1 7
+ItemE 18 1 2 1
+ItemE 14 1 2 2
+ItemF 20 1 2 3
+ItemF 16 1 2 4
+ItemG 11 1 2 5
+ItemG 8 1 2 6
+ItemH 13 1 2 7
+ItemI 22 2 1 1
+ItemI 19 2 1 2
+ItemJ 25 2 1 3
+ItemJ 21 2 1 4
+ItemK 17 2 1 5
+ItemK 14 2 1 6
+ItemL 28 2 1 7
+ItemM 30 2 2 1
+ItemM 26 2 2 2
+ItemN 23 2 2 3
+ItemN 20 2 2 4
+ItemO 32 2 2 5
+ItemO 28 2 2 6
+ItemP 35 2 2 7
+ItemQ 15 3 1 1
+ItemQ 12 3 1 2
+ItemR 18 3 1 3
+ItemR 14 3 1 4
+ItemS 21 3 1 5
+ItemS 17 3 1 6
+ItemT 24 3 1 7
+ItemU 27 3 2 1
+ItemU 23 3 2 2
+ItemV 30 3 2 3
+ItemV 26 3 2 4
+ItemW 33 3 2 5
+ItemW 29 3 2 6
+ItemX 36 3 2 7
+ItemY 16 4 1 1
+ItemY 13 4 1 2
+ItemZ 19 4 1 3
+ItemZ 15 4 1 4
+ItemAA 22 4 1 5
+ItemAA 18 4 1 6
+ItemBB 25 4 1 7
+ItemCC 28 4 2 1
+ItemCC 24 4 2 2
+ItemDD 31 4 2 3
+ItemDD 27 4 2 4
+ItemEE 34 4 2 5
+ItemEE 30 4 2 6
+ItemFF 37 4 2 7
+ItemGG 17 5 1 1
+ItemGG 14 5 1 2
+ItemHH 20 5 1 3
+ItemHH 16 5 1 4
+ItemII 23 5 1 5
+ItemII 19 5 1 6
+ItemJJ 26 5 1 7
+ItemKK 29 5 2 1
+ItemKK 25 5 2 2
+ItemLL 32 5 2 3
+ItemLL 28 5 2 4
+ItemMM 35 5 2 5
+ItemMM 31 5 2 6
+ItemNN 38 5 2 7
+ItemOO 18 6 1 1
+ItemOO 15 6 1 2
+ItemPP 21 6 1 3
+ItemPP 17 6 1 4
+ItemQQ 24 6 1 5
+ItemQQ 20 6 1 6
+ItemRR 27 6 1 7
+ItemSS 30 6 2 1
+ItemSS 26 6 2 2
+ItemTT 33 6 2 3
+ItemTT 29 6 2 4
+ItemUU 36 6 2 5
+ItemUU 32 6 2 6
+ItemVV 39 6 2 7
+WAREHOUSE_END
+REQUIRE_START
+ItemA 10
+ItemB 12
+ItemC 15
+ItemD 8
+ItemE 18
+ItemF 20
+ItemG 10
+ItemH 9
+ItemI 22
+ItemJ 25
+ItemK 16
+ItemL 14
+ItemM 28
+ItemN 20
+ItemO 15
+REQUIRE_END

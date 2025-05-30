@@ -6,7 +6,7 @@ import java.util.ArrayList;
 
 /**
  * Lớp Params chứa các tham số và dữ liệu cấu hình cho bài toán
- * Cập nhật để tương thích với cấu trúc kho mới: mỗi ô hàng có 1 điểm tiếp cận duy nhất
+ * Phiên bản đã sửa lỗi để đảm bảo lấy đủ hàng theo yêu cầu
  */
 public class Params {
     // Tham số kho hàng
@@ -138,23 +138,32 @@ public class Params {
                     parts = line.trim().split(" ");
                     if (parts.length >= 2) {
                         name = parts[0];
-                        quantity = Integer.parseInt(parts[1]);
+                        int requestedQuantity = Integer.parseInt(parts[1]);
 
-                        // Kiểm tra xem có đủ số lượng trong kho không
-                        boolean sufficientQuantity = false;
+                        // Kiểm tra tổng số lượng có sẵn trong kho
+                        int availableQuantity = 0;
                         for (Merchandise item : warehouse) {
-                            if (item.getName().equals(name) && item.getQuantity() >= quantity) {
-                                sufficientQuantity = true;
-                                break;
+                            if (item.getName().equals(name)) {
+                                availableQuantity += item.getQuantity();
                             }
                         }
 
-                        if (sufficientQuantity) {
-                            Merchandise merchandise = new Merchandise(name, quantity);
-                            require.add(merchandise);
+                        if (availableQuantity >= requestedQuantity) {
+                            // Tạo merchandise với số lượng yêu cầu
+                            Merchandise requiredMerchandise = new Merchandise(name, requestedQuantity);
+                            require.add(requiredMerchandise);
+                            System.out.println("✓ Thêm yêu cầu: " + name + " x " + requestedQuantity +
+                                    " (có sẵn: " + availableQuantity + ")");
                         } else {
-                            System.out.println("Cảnh báo: Không đủ số lượng cho sản phẩm " + name +
-                                    " (yêu cầu: " + quantity + ")");
+                            // Nếu không đủ hàng, thêm số lượng có sẵn và cảnh báo
+                            if (availableQuantity > 0) {
+                                Merchandise requiredMerchandise = new Merchandise(name, availableQuantity);
+                                require.add(requiredMerchandise);
+                                System.out.println("⚠ Cảnh báo: Chỉ có " + availableQuantity + "/" + requestedQuantity +
+                                        " cho " + name + " - Đã điều chỉnh yêu cầu");
+                            } else {
+                                System.out.println("✗ Lỗi: Không có " + name + " trong kho (yêu cầu: " + requestedQuantity + ")");
+                            }
                         }
                     }
                 }
@@ -170,7 +179,7 @@ public class Params {
                     System.arraycopy(mapRows.get(i), 0, WAREHOUSE_MAP[i], 0, cols);
                 }
 
-                System.out.println("Đã đọc bản đồ kho hàng từ file: " + rows + "x" + cols);
+                System.out.println("✓ Đã đọc bản đồ kho hàng từ file: " + rows + "x" + cols);
             } else {
                 // Tạo bản đồ mặc định theo cấu trúc mới
                 createDefaultMapForNewStructure();
@@ -182,8 +191,14 @@ public class Params {
             WAREHOUSE = warehouse;
             REQUIRE = require;
 
+            // Kiểm tra và điều chỉnh sức chứa robot nếu cần
+            validateAndAdjustCapacity();
+
             // In thông tin cấu hình
             printConfigurationInfo();
+
+            // Kiểm tra tính khả thi của bài toán
+            validateProblemFeasibility();
 
         } catch (FileNotFoundException e) {
             throw new RuntimeException("Không tìm thấy file: " + pathname, e);
@@ -191,6 +206,80 @@ public class Params {
             throw new RuntimeException("Lỗi khi đọc file: " + pathname, e);
         } catch (NumberFormatException e) {
             throw new RuntimeException("Lỗi định dạng số trong file: " + pathname, e);
+        }
+    }
+
+    /**
+     * Kiểm tra và điều chỉnh sức chứa robot để đảm bảo có thể lấy đủ hàng
+     */
+    private static void validateAndAdjustCapacity() {
+        if (REQUIRE == null || REQUIRE.isEmpty()) {
+            return;
+        }
+
+        int totalRequiredQuantity = 0;
+        for (Merchandise item : REQUIRE) {
+            totalRequiredQuantity += item.getQuantity();
+        }
+
+        int totalCapacity = ROBOTS * CAPACITY;
+
+        if (totalRequiredQuantity > totalCapacity) {
+            System.out.println("⚠ CẢNH BÁO: Tổng yêu cầu (" + totalRequiredQuantity +
+                    ") > Tổng sức chứa robot (" + totalCapacity + ")");
+
+            // Tự động điều chỉnh sức chứa
+            int newCapacity = (int) Math.ceil((double) totalRequiredQuantity / ROBOTS) + 5; // +5 để dự phòng
+            System.out.println("🔧 Tự động điều chỉnh sức chứa robot từ " + CAPACITY + " lên " + newCapacity);
+            CAPACITY = newCapacity;
+        }
+    }
+
+    /**
+     * Kiểm tra tính khả thi của bài toán
+     */
+    private static void validateProblemFeasibility() {
+        System.out.println("\n=== KIỂM TRA TÍNH KHẢ THI ===");
+
+        boolean feasible = true;
+
+        // Kiểm tra mỗi mặt hàng yêu cầu
+        for (Merchandise reqItem : REQUIRE) {
+            int availableQuantity = 0;
+            for (Merchandise warehouseItem : WAREHOUSE) {
+                if (warehouseItem.getName().equals(reqItem.getName())) {
+                    availableQuantity += warehouseItem.getQuantity();
+                }
+            }
+
+            if (availableQuantity < reqItem.getQuantity()) {
+                System.out.println("✗ " + reqItem.getName() + ": Yêu cầu " + reqItem.getQuantity() +
+                        ", có sẵn " + availableQuantity);
+                feasible = false;
+            } else {
+                System.out.println("✓ " + reqItem.getName() + ": Yêu cầu " + reqItem.getQuantity() +
+                        ", có sẵn " + availableQuantity);
+            }
+        }
+
+        // Kiểm tra sức chứa
+        int totalRequired = 0;
+        for (Merchandise item : REQUIRE) {
+            totalRequired += item.getQuantity();
+        }
+        int totalCapacity = ROBOTS * CAPACITY;
+
+        if (totalRequired > totalCapacity) {
+            System.out.println("✗ Sức chứa: Yêu cầu " + totalRequired + ", có sẵn " + totalCapacity);
+            feasible = false;
+        } else {
+            System.out.println("✓ Sức chứa: Yêu cầu " + totalRequired + ", có sẵn " + totalCapacity);
+        }
+
+        if (feasible) {
+            System.out.println("🎉 Bài toán có thể giải được!");
+        } else {
+            System.out.println("⚠ Bài toán có thể không giải được hoàn toàn!");
         }
     }
 
@@ -221,11 +310,11 @@ public class Params {
             }
         }
 
-        System.out.println("Đã tạo bản đồ kho hàng mặc định (cấu trúc mới): " + rows + "x" + cols);
+        System.out.println("✓ Đã tạo bản đồ kho hàng mặc định (cấu trúc mới): " + rows + "x" + cols);
     }
 
     /**
-     * In thông tin cấu hình
+     * In thông tin cấu hình - Phiên bản cải tiến
      */
     private static void printConfigurationInfo() {
         System.out.println("\n=== THÔNG TIN CẤU HÌNH KHO HÀNG ===");
@@ -243,9 +332,11 @@ public class Params {
             System.out.println("- Kích thước bản đồ: " + WAREHOUSE_MAP.length + "x" + WAREHOUSE_MAP[0].length);
         }
 
-        // Thống kê mặt hàng
+        // Thống kê mặt hàng - chi tiết hơn
         int totalWarehouseQuantity = 0;
         int totalRequiredQuantity = 0;
+        int totalWarehouseTypes = WAREHOUSE.size();
+        int totalRequiredTypes = REQUIRE.size();
 
         for (Merchandise item : WAREHOUSE) {
             totalWarehouseQuantity += item.getQuantity();
@@ -257,19 +348,135 @@ public class Params {
 
         System.out.println("- Tổng số lượng hàng trong kho: " + totalWarehouseQuantity);
         System.out.println("- Tổng số lượng hàng cần lấy: " + totalRequiredQuantity);
+        System.out.println("- Loại hàng trong kho: " + totalWarehouseTypes);
+        System.out.println("- Loại hàng cần lấy: " + totalRequiredTypes);
         System.out.println("- Tỷ lệ sử dụng kho: " + String.format("%.1f", (totalRequiredQuantity * 100.0 / totalWarehouseQuantity)) + "%");
+
+        // Kiểm tra sức chứa
+        int totalCapacity = ROBOTS * CAPACITY;
+        System.out.println("- Tổng sức chứa robot: " + totalCapacity);
+        System.out.println("- Tỷ lệ sử dụng sức chứa: " + String.format("%.1f", (totalRequiredQuantity * 100.0 / totalCapacity)) + "%");
+
+        if (totalRequiredQuantity > totalCapacity) {
+            System.out.println("⚠ CẢNH BÁO: Vượt quá sức chứa robot!");
+        }
     }
 
     /**
-     * Tính số ô hàng trong kho
+     * In danh sách mặt hàng cần lấy - Phiên bản chi tiết
+     */
+    public static void printRequiredItems() {
+        System.out.println("\n=== DANH SÁCH MẶT HÀNG CẦN LẤY (CHI TIẾT) ===");
+
+        if (REQUIRE == null || REQUIRE.isEmpty()) {
+            System.out.println("Không có mặt hàng nào cần lấy!");
+            return;
+        }
+
+        int totalQuantity = 0;
+        for (int i = 0; i < REQUIRE.size(); i++) {
+            Merchandise reqItem = REQUIRE.get(i);
+
+            // Tìm trong kho để kiểm tra có đủ hàng không
+            int availableQuantity = 0;
+            ArrayList<Position> availablePositions = new ArrayList<>();
+
+            for (Merchandise warehouseItem : WAREHOUSE) {
+                if (warehouseItem.getName().equals(reqItem.getName())) {
+                    availableQuantity += warehouseItem.getQuantity();
+                    availablePositions.add(warehouseItem.getPosition());
+                    // Thêm các vị trí thay thế nếu có
+                    for (Position altPos : warehouseItem.getAllPositions()) {
+                        if (!altPos.equals(warehouseItem.getPosition())) {
+                            availablePositions.add(altPos);
+                        }
+                    }
+                }
+            }
+
+            String status = (availableQuantity >= reqItem.getQuantity()) ? "✓" : "⚠";
+            System.out.printf("%s %2d. %-20s: %3d đơn vị (có sẵn: %3d, tại %d vị trí)\n",
+                    status, (i+1), reqItem.getName(), reqItem.getQuantity(),
+                    availableQuantity, availablePositions.size());
+
+            totalQuantity += reqItem.getQuantity();
+        }
+
+        System.out.println("─".repeat(70));
+        System.out.println("TỔNG SỐ LƯỢNG CẦN LẤY: " + totalQuantity + " đơn vị");
+        System.out.println("TỔNG SỨC CHỨA ROBOT: " + (ROBOTS * CAPACITY) + " đơn vị");
+
+        if (totalQuantity > ROBOTS * CAPACITY) {
+            System.out.println("⚠ CẢNH BÁO: Cần tăng số robot hoặc sức chứa!");
+        } else {
+            System.out.println("✓ Sức chứa đủ để thực hiện nhiệm vụ");
+        }
+    }
+
+    /**
+     * Kiểm tra tính hợp lệ của cấu hình - Phiên bản nâng cao
+     */
+    public static boolean validateConfiguration() {
+        boolean isValid = true;
+        ArrayList<String> errors = new ArrayList<>();
+
+        // Kiểm tra tham số cơ bản
+        if (SHELVES <= 0 || TIERS <= 0 || SLOTS <= 0) {
+            errors.add("Tham số kho hàng không hợp lệ: SHELVES=" + SHELVES + ", TIERS=" + TIERS + ", SLOTS=" + SLOTS);
+            isValid = false;
+        }
+
+        if (ROBOTS <= 0 || CAPACITY <= 0) {
+            errors.add("Tham số robot không hợp lệ: ROBOTS=" + ROBOTS + ", CAPACITY=" + CAPACITY);
+            isValid = false;
+        }
+
+        if (WAREHOUSE == null || WAREHOUSE.isEmpty()) {
+            errors.add("Không có mặt hàng nào trong kho");
+            isValid = false;
+        }
+
+        if (REQUIRE == null || REQUIRE.isEmpty()) {
+            errors.add("Không có mặt hàng nào cần lấy");
+            isValid = false;
+        }
+
+        // Kiểm tra tính khả thi
+        if (REQUIRE != null && WAREHOUSE != null) {
+            for (Merchandise reqItem : REQUIRE) {
+                int availableQuantity = 0;
+                for (Merchandise warehouseItem : WAREHOUSE) {
+                    if (warehouseItem.getName().equals(reqItem.getName())) {
+                        availableQuantity += warehouseItem.getQuantity();
+                    }
+                }
+
+                if (availableQuantity < reqItem.getQuantity()) {
+                    errors.add("Không đủ " + reqItem.getName() + ": yêu cầu " + reqItem.getQuantity() +
+                            ", có sẵn " + availableQuantity);
+                    isValid = false;
+                }
+            }
+        }
+
+        // In lỗi nếu có
+        if (!errors.isEmpty()) {
+            System.out.println("\n❌ CÁC LỖI CẤU HÌNH:");
+            for (int i = 0; i < errors.size(); i++) {
+                System.out.println((i+1) + ". " + errors.get(i));
+            }
+        }
+
+        return isValid;
+    }
+
+    /**
+     * Các phương thức còn lại giữ nguyên...
      */
     public static int calculateTotalCells() {
         return SHELVES * TIERS * SLOTS;
     }
 
-    /**
-     * In danh sách mặt hàng trong kho
-     */
     public static void printWarehouse() {
         System.out.println("\n=== DANH SÁCH MẶT HÀNG TRONG KHO ===");
         for (int i = 0; i < WAREHOUSE.size(); i++) {
@@ -284,20 +491,6 @@ public class Params {
         }
     }
 
-    /**
-     * In danh sách mặt hàng cần lấy
-     */
-    public static void printRequiredItems() {
-        System.out.println("\n=== DANH SÁCH MẶT HÀNG CẦN LẤY ===");
-        for (int i = 0; i < REQUIRE.size(); i++) {
-            Merchandise m = REQUIRE.get(i);
-            System.out.println((i+1) + ". " + m.getName() + ": " + m.getQuantity() + " đơn vị");
-        }
-    }
-
-    /**
-     * In bản đồ kho hàng
-     */
     public static void printWarehouseMap() {
         if (WAREHOUSE_MAP == null) {
             System.out.println("Bản đồ kho hàng chưa được khởi tạo");
@@ -340,36 +533,6 @@ public class Params {
         }
     }
 
-    /**
-     * Kiểm tra tính hợp lệ của cấu hình
-     */
-    public static boolean validateConfiguration() {
-        if (SHELVES <= 0 || TIERS <= 0 || SLOTS <= 0) {
-            System.out.println("CẢNH BÁO: Tham số kho hàng không hợp lệ");
-            return false;
-        }
-
-        if (ROBOTS <= 0 || CAPACITY <= 0) {
-            System.out.println("CẢNH BÁO: Tham số robot không hợp lệ");
-            return false;
-        }
-
-        if (WAREHOUSE == null || WAREHOUSE.isEmpty()) {
-            System.out.println("CẢNH BÁO: Không có mặt hàng nào trong kho");
-            return false;
-        }
-
-        if (REQUIRE == null || REQUIRE.isEmpty()) {
-            System.out.println("CẢNH BÁO: Không có mặt hàng nào cần lấy");
-            return false;
-        }
-
-        return true;
-    }
-
-    /**
-     * In thông tin tổng quan
-     */
     public static void printSummary() {
         System.out.println("\n=== TỔNG QUAN BÀI TOÁN ===");
         System.out.println("Cấu trúc kho: " + SHELVES + " khối kệ x " + TIERS + " tầng x " + SLOTS + " ô");

@@ -2,27 +2,22 @@ import java.util.ArrayList;
 import java.util.Random;
 
 /**
- * Lớp PSO thực hiện thuật toán Particle Swarm Optimization
- * để tìm đường đi tối ưu cho robot trong kho hàng
+ * Lớp PSO đã được tối ưu để đảm bảo sử dụng toàn bộ robot có sẵn
+ * Bổ sung các chiến lược phân bổ thông minh và cân bằng tải
  */
 public class PSO {
-    private ArrayList<Particle> swarm;
+    private final ArrayList<Particle> swarm;
     private Particle globalBest;
-    private int swarmSize;
-    private int maxIterations;
-    private double w; // trọng số quán tính
-    private double c1; // hệ số nhận thức
-    private double c2; // hệ số xã hội
-    private Random random;
+    private final int swarmSize;
+    private final int maxIterations;
+    private final double w; // trọng số quán tính
+    private final double c1; // hệ số nhận thức
+    private final double c2; // hệ số xã hội
+    private  Random random;
     private VNS vns;
 
     /**
      * Khởi tạo PSO với các tham số
-     * @param swarmSize Kích thước đàn
-     * @param maxIterations Số vòng lặp tối đa
-     * @param w Trọng số quán tính
-     * @param c1 Hệ số nhận thức
-     * @param c2 Hệ số xã hội
      */
     public PSO(int swarmSize, int maxIterations, double w, double c1, double c2) {
         this.swarmSize = swarmSize;
@@ -36,21 +31,18 @@ public class PSO {
     }
 
     /**
-     * Giải bài toán tìm đường đi tối ưu
-     * @param warehousing Kho hàng
-     * @param require Danh sách mặt hàng cần lấy
-     * @param robots Danh sách robot
-     * @return Giải pháp tốt nhất
+     * Giải bài toán tìm đường đi tối ưu - ĐẢM BẢO TẤT CẢ ROBOT HOẠT ĐỘNG
      */
     public Solution solve(ArrayList<Merchandise> warehousing, ArrayList<Merchandise> require, ArrayList<Robot> robots) {
-        // Khởi tạo đàn
-        initializeSwarm(warehousing, require, robots);
+        System.out.println("🚀 Bắt đầu PSO với mục tiêu sử dụng TẤT CẢ " + robots.size() + " robot");
 
-        System.out.println("Bắt đầu thuật toán PSO với " + swarmSize + " hạt và " + maxIterations + " vòng lặp");
+        // Khởi tạo đàn với chiến lược đảm bảo tất cả robot hoạt động
+        initializeSwarmWithAllRobots(warehousing, require, robots);
+
+        System.out.println("📊 PSO khởi tạo với " + swarmSize + " hạt và " + maxIterations + " vòng lặp");
 
         // Vòng lặp chính của PSO
         for (int iteration = 0; iteration < maxIterations; iteration++) {
-            // Cập nhật vị trí và vận tốc cho mỗi hạt
             for (Particle particle : swarm) {
                 updateVelocityAndPosition(particle, warehousing);
 
@@ -60,8 +52,8 @@ public class PSO {
                 }
                 DistanceCalculator.setCurrentRobotPosition(particle.getSolution().getRobots().get(0).getStartPosition());
 
-                // Đánh giá độ thích nghi
-                double fitness = evaluateFitness(particle.getSolution(), warehousing);
+                // Đánh giá độ thích nghi với penalty cho robot không hoạt động
+                double fitness = evaluateFitnessWithRobotPenalty(particle.getSolution(), warehousing);
                 particle.getSolution().setFitness(fitness);
 
                 // Cập nhật vị trí tốt nhất của hạt
@@ -75,17 +67,16 @@ public class PSO {
                     if (fitness < globalBest.getBestFitness()) {
                         globalBest.setBestSolution(new Solution(particle.getSolution()));
                         globalBest.setBestFitness(fitness);
-                    }
-                }
 
-                // In thông tin nếu có cải thiện đáng kể
-                if (improved && iteration % 5 == 0) {
-                    System.out.println("  Hạt cải thiện: " + fitness + " (giảm " +
-                            String.format("%.2f", (particle.getBestFitness() - fitness)) + " đơn vị)");
+                        // In thông tin về số robot hoạt động
+                        int activeRobots = countActiveRobots(particle.getSolution());
+                        System.out.println("  🎯 Giải pháp mới tốt nhất: " + fitness +
+                                " (Robot hoạt động: " + activeRobots + "/" + robots.size() + ")");
+                    }
                 }
             }
 
-            // Áp dụng VNS để cải thiện giải pháp tốt nhất toàn cục sau mỗi N vòng lặp
+            // Áp dụng VNS để cải thiện giải pháp tốt nhất toàn cục
             if (iteration % 5 == 0) {
                 double oldFitness = globalBest.getBestFitness();
                 Solution improvedSolution = vns.improve(globalBest.getBestSolution(), warehousing);
@@ -93,33 +84,36 @@ public class PSO {
                 if (improvedSolution.getFitness() < oldFitness) {
                     globalBest.setBestSolution(improvedSolution);
                     globalBest.setBestFitness(improvedSolution.getFitness());
-                    System.out.println("  VNS cải thiện giải pháp: " + improvedSolution.getFitness() +
-                            " (giảm " + String.format("%.2f", (oldFitness - improvedSolution.getFitness())) + " đơn vị)");
+
+                    int activeRobots = countActiveRobots(improvedSolution);
+                    System.out.println("  🔧 VNS cải thiện: " + improvedSolution.getFitness() +
+                            " (Robot hoạt động: " + activeRobots + "/" + robots.size() + ")");
                 }
             }
 
-            // In tiến độ
+            // Đảm bảo đa dạng trong đàn - khuyến khích sử dụng tất cả robot
             if (iteration % 10 == 0) {
-                System.out.println("Vòng lặp " + iteration + ": Quãng đường tốt nhất = " + globalBest.getBestFitness());
+                diversifySwarmForAllRobots();
+                int activeRobots = countActiveRobots(globalBest.getBestSolution());
+                System.out.println("  📈 Vòng lặp " + iteration + ": Tốt nhất = " + globalBest.getBestFitness() +
+                        " (Robot: " + activeRobots + "/" + robots.size() + ")");
             }
         }
 
-        System.out.println("PSO đã hoàn thành. Quãng đường tốt nhất: " + globalBest.getBestFitness());
+        // Tối ưu hóa cuối cùng với focus vào việc sử dụng tất cả robot
+        optimizeForAllRobots(globalBest.getBestSolution(), warehousing);
 
-        // Tối ưu hóa cuối cùng cho giải pháp tốt nhất
-        optimizeRouteOrders(globalBest.getBestSolution(), warehousing);
+        int finalActiveRobots = countActiveRobots(globalBest.getBestSolution());
+        System.out.println("🏁 PSO hoàn thành. Robot hoạt động: " + finalActiveRobots + "/" + robots.size() +
+                ", Quãng đường: " + globalBest.getBestFitness());
 
         return globalBest.getBestSolution();
     }
 
     /**
-     * Khởi tạo đàn với các hạt ngẫu nhiên
-     * @param warehousing Kho hàng
-     * @param require Danh sách mặt hàng cần lấy
-     * @param robots Danh sách robot
+     * Khởi tạo đàn với chiến lược đảm bảo tất cả robot hoạt động
      */
-    private void initializeSwarm(ArrayList<Merchandise> warehousing, ArrayList<Merchandise> require, ArrayList<Robot> robots) {
-        // Tạo danh sách các robot với vị trí hiện tại được đặt
+    private void initializeSwarmWithAllRobots(ArrayList<Merchandise> warehousing, ArrayList<Merchandise> require, ArrayList<Robot> robots) {
         ArrayList<Robot> initializedRobots = new ArrayList<>();
         for (Robot robot : robots) {
             Robot newRobot = new Robot(robot.nameRobot, robot.getStartPosition());
@@ -127,11 +121,12 @@ public class PSO {
             initializedRobots.add(newRobot);
         }
 
-        // Tạo các hạt ban đầu
+        System.out.println("🎲 Tạo " + swarmSize + " hạt với các chiến lược khác nhau...");
+
         for (int i = 0; i < swarmSize; i++) {
             Particle particle = new Particle();
 
-            // Tạo bản sao mới của danh sách robot cho mỗi giải pháp
+            // Tạo bản sao robot cho mỗi hạt
             ArrayList<Robot> particleRobots = new ArrayList<>();
             for (Robot robot : initializedRobots) {
                 Robot robotCopy = new Robot(robot.nameRobot, robot.getStartPosition());
@@ -139,25 +134,28 @@ public class PSO {
                 particleRobots.add(robotCopy);
             }
 
-            // Khởi tạo với một giải pháp ngẫu nhiên
+            // Khởi tạo với chiến lược khác nhau để đảm bảo đa dạng
             Solution solution = new Solution(particleRobots);
-            solution.initializeRandomSolution(require);
 
-            // Đặt vị trí hiện tại của tất cả robot về vị trí xuất phát
-            for (Robot robot : solution.getRobots()) {
-                robot.setCurrentPosition(robot.getStartPosition().copy());
+            if (i < swarmSize / 3) {
+                // 1/3 đầu: Chiến lược round-robin
+                solution.initializeRandomSolution(require);
+            } else if (i < 2 * swarmSize / 3) {
+                // 1/3 giữa: Chiến lược cân bằng tải
+                initializeBalancedSolution(solution, require);
+            } else {
+                // 1/3 cuối: Chiến lược ngẫu nhiên có điều chỉnh
+                initializeAdjustedRandomSolution(solution, require);
             }
 
-            // Đặt vị trí hiện tại cho DistanceCalculator
-            if (!solution.getRobots().isEmpty()) {
-                DistanceCalculator.setCurrentRobotPosition(solution.getRobots().get(0).getStartPosition());
-            }
+            // Đảm bảo tất cả robot hoạt động
+            ensureAllRobotsActiveInSolution(solution);
 
-            // Tối ưu hóa thứ tự trong mỗi tuyến đường
+            // Đặt vị trí robot và tính fitness
+            setRobotPositions(solution);
             optimizeRouteOrders(solution, warehousing);
 
-            // Đánh giá độ thích nghi ban đầu
-            double fitness = evaluateFitness(solution, warehousing);
+            double fitness = evaluateFitnessWithRobotPenalty(solution, warehousing);
             solution.setFitness(fitness);
 
             particle.setSolution(solution);
@@ -166,45 +164,317 @@ public class PSO {
 
             swarm.add(particle);
 
-            // Khởi tạo vị trí tốt nhất toàn cục với hạt đầu tiên
-            if (i == 0) {
-                globalBest = new Particle();
-                globalBest.setBestSolution(new Solution(solution));
-                globalBest.setBestFitness(fitness);
-            } else if (fitness < globalBest.getBestFitness()) {
+            // Khởi tạo hoặc cập nhật best toàn cục
+            if (i == 0 || fitness < globalBest.getBestFitness()) {
+                if (globalBest == null) globalBest = new Particle();
                 globalBest.setBestSolution(new Solution(solution));
                 globalBest.setBestFitness(fitness);
             }
+        }
+
+        int bestActiveRobots = countActiveRobots(globalBest.getBestSolution());
+        System.out.println("✅ Khởi tạo hoàn thành. Giải pháp tốt nhất có " + bestActiveRobots +
+                "/" + robots.size() + " robot hoạt động");
+    }
+
+    /**
+     * Khởi tạo giải pháp cân bằng tải
+     */
+    private void initializeBalancedSolution(Solution solution, ArrayList<Merchandise> require) {
+        ArrayList<Robot> robots = solution.getRobots();
+        ArrayList<ArrayList<Merchandise>> routes = solution.getRobotRoutes();
+
+        // Sắp xếp hàng theo thứ tự giảm dần của quantity
+        ArrayList<Merchandise> sortedItems = new ArrayList<>(require);
+        sortedItems.sort((a, b) -> Integer.compare(b.getQuantity(), a.getQuantity()));
+
+        // Phân bổ theo chiến lược "longest processing time first"
+        for (Merchandise item : sortedItems) {
+            int leastLoadedRobot = findLeastLoadedRobot(solution);
+            routes.get(leastLoadedRobot).add(item);
+        }
+    }
+
+    /**
+     * Khởi tạo giải pháp ngẫu nhiên có điều chỉnh
+     */
+    private void initializeAdjustedRandomSolution(Solution solution, ArrayList<Merchandise> require) {
+        ArrayList<Merchandise> items = new ArrayList<>(require);
+        java.util.Collections.shuffle(items, random);
+
+        // Phân bổ ngẫu nhiên ban đầu
+        int robotIndex = 0;
+        for (Merchandise item : items) {
+            solution.getRobotRoutes().get(robotIndex).add(item);
+            robotIndex = (robotIndex + 1) % solution.getRobots().size();
+        }
+
+        // Điều chỉnh để cân bằng
+        balanceLoadAcrossRobots(solution);
+    }
+
+    /**
+     * Đảm bảo tất cả robot hoạt động trong solution
+     */
+    private void ensureAllRobotsActiveInSolution(Solution solution) {
+        ArrayList<ArrayList<Merchandise>> routes = solution.getRobotRoutes();
+        ArrayList<Robot> robots = solution.getRobots();
+
+        // Tìm robot không hoạt động
+        for (int i = 0; i < robots.size(); i++) {
+            if (routes.get(i).isEmpty()) {
+                // Tìm robot có nhiều hàng nhất để chia sẻ
+                int maxItemsRobot = -1;
+                int maxItems = 0;
+
+                for (int j = 0; j < robots.size(); j++) {
+                    if (j != i && routes.get(j).size() > maxItems) {
+                        maxItems = routes.get(j).size();
+                        maxItemsRobot = j;
+                    }
+                }
+
+                // Chuyển một item từ robot có nhiều hàng nhất
+                if (maxItemsRobot != -1 && maxItems > 1) {
+                    ArrayList<Merchandise> sourceRoute = routes.get(maxItemsRobot);
+                    ArrayList<Merchandise> targetRoute = routes.get(i);
+
+                    // Chuyển item cuối cùng
+                    Merchandise item = sourceRoute.removeLast();
+                    targetRoute.add(item);
+                }
+            }
+        }
+    }
+
+    /**
+     * Cân bằng tải giữa các robot
+     */
+    private void balanceLoadAcrossRobots(Solution solution) {
+        boolean improved = true;
+        int iterations = 0;
+
+        while (improved && iterations < 20) {
+            improved = false;
+            iterations++;
+
+            // Tìm robot quá tải và robot nhàn rỗi
+            for (int i = 0; i < solution.getRobots().size(); i++) {
+                for (int j = 0; j < solution.getRobots().size(); j++) {
+                    if (i != j && tryTransferItem(solution, i, j)) {
+                        improved = true;
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Thử chuyển item từ robot i sang robot j
+     */
+    private boolean tryTransferItem(Solution solution, int fromRobot, int toRobot) {
+        ArrayList<Merchandise> fromRoute = solution.getRobotRoutes().get(fromRobot);
+        ArrayList<Merchandise> toRoute = solution.getRobotRoutes().get(toRobot);
+        Robot toRobotObj = solution.getRobots().get(toRobot);
+
+        if (fromRoute.isEmpty()) return false;
+
+        int fromLoad = calculateRobotLoad(solution, fromRobot);
+        int toLoad = calculateRobotLoad(solution, toRobot);
+
+        // Chỉ chuyển nếu có thể cân bằng tải và không vi phạm capacity
+        if (fromLoad > toLoad + 5) { // Threshold để tránh dao động
+            for (int i = fromRoute.size() - 1; i >= 0; i--) {
+                Merchandise item = fromRoute.get(i);
+                if (toLoad + item.getQuantity() <= toRobotObj.capacity) {
+                    fromRoute.remove(i);
+                    toRoute.add(item);
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Tính tải trọng của robot
+     */
+    private int calculateRobotLoad(Solution solution, int robotIndex) {
+        int load = 0;
+        for (Merchandise item : solution.getRobotRoutes().get(robotIndex)) {
+            load += item.getQuantity();
+        }
+        return load;
+    }
+
+    /**
+     * Tìm robot có tải trọng thấp nhất
+     */
+    private int findLeastLoadedRobot(Solution solution) {
+        int minLoad = Integer.MAX_VALUE;
+        int robotIndex = 0;
+
+        for (int i = 0; i < solution.getRobots().size(); i++) {
+            int load = calculateRobotLoad(solution, i);
+            if (load < minLoad) {
+                minLoad = load;
+                robotIndex = i;
+            }
+        }
+
+        return robotIndex;
+    }
+
+    /**
+     * Đếm số robot hoạt động
+     */
+    private int countActiveRobots(Solution solution) {
+        int count = 0;
+        for (ArrayList<Merchandise> route : solution.getRobotRoutes()) {
+            if (!route.isEmpty()) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /**
+     * Đánh giá fitness với penalty cho robot không hoạt động
+     */
+    private double evaluateFitnessWithRobotPenalty(Solution solution, ArrayList<Merchandise> warehousing) {
+        double baseFitness = evaluateFitness(solution, warehousing);
+
+        // Tính penalty cho robot không hoạt động
+        int totalRobots = solution.getRobots().size();
+        int activeRobots = countActiveRobots(solution);
+        int inactiveRobots = totalRobots - activeRobots;
+
+        // Penalty tỷ lệ với số robot không hoạt động
+        double inactiveRobotPenalty = inactiveRobots * 1000.0; // Penalty lớn để khuyến khích sử dụng tất cả robot
+
+        // Penalty cho sự không cân bằng tải
+        double imbalancePenalty = calculateLoadImbalancePenalty(solution);
+
+        return baseFitness + inactiveRobotPenalty + imbalancePenalty;
+    }
+
+    /**
+     * Tính penalty cho sự không cân bằng tải
+     */
+    private double calculateLoadImbalancePenalty(Solution solution) {
+        if (solution.getRobots().isEmpty()) return 0;
+
+        ArrayList<Integer> loads = new ArrayList<>();
+        for (int i = 0; i < solution.getRobots().size(); i++) {
+            loads.add(calculateRobotLoad(solution, i));
+        }
+
+        // Tính độ lệch chuẩn của tải trọng
+        double mean = loads.stream().mapToInt(Integer::intValue).average().orElse(0);
+        double variance = loads.stream().mapToDouble(load -> Math.pow(load - mean, 2)).average().orElse(0);
+        double stdDev = Math.sqrt(variance);
+
+        return stdDev * 10.0; // Penalty cho độ lệch chuẩn cao
+    }
+
+    /**
+     * Đa dạng hóa đàn để khuyến khích sử dụng tất cả robot
+     */
+    private void diversifySwarmForAllRobots() {
+        // Tìm các hạt có ít robot hoạt động
+        for (int i = 0; i < swarm.size() / 4; i++) { // Đa dạng hóa 25% đàn
+            Particle particle = swarm.get(i);
+            int activeRobots = countActiveRobots(particle.getSolution());
+
+            if (activeRobots < particle.getSolution().getRobots().size()) {
+                // Tái phân bổ để kích hoạt thêm robot
+                redistributeToActivateAllRobots(particle.getSolution());
+
+                // Tính lại fitness
+                double newFitness = evaluateFitnessWithRobotPenalty(particle.getSolution(), null);
+                particle.getSolution().setFitness(newFitness);
+            }
+        }
+    }
+
+    /**
+     * Phân bổ lại để kích hoạt tất cả robot
+     */
+    private void redistributeToActivateAllRobots(Solution solution) {
+        ArrayList<ArrayList<Merchandise>> routes = solution.getRobotRoutes();
+
+        // Thu thập tất cả items
+        ArrayList<Merchandise> allItems = new ArrayList<>();
+        for (ArrayList<Merchandise> route : routes) {
+            allItems.addAll(route);
+            route.clear();
+        }
+
+        // Phân bổ lại theo round-robin
+        if (!allItems.isEmpty()) {
+            int robotIndex = 0;
+            for (Merchandise item : allItems) {
+                routes.get(robotIndex).add(item);
+                robotIndex = (robotIndex + 1) % routes.size();
+            }
+        }
+    }
+
+    /**
+     * Tối ưu hóa cuối cùng cho tất cả robot
+     */
+    private void optimizeForAllRobots(Solution solution, ArrayList<Merchandise> warehousing) {
+        System.out.println("🎯 Tối ưu hóa cuối cùng cho tất cả robot...");
+
+        // Đảm bảo tất cả robot hoạt động
+        ensureAllRobotsActiveInSolution(solution);
+
+        // Cân bằng tải
+        balanceLoadAcrossRobots(solution);
+
+        // Tối ưu thứ tự đường đi
+        optimizeRouteOrders(solution, warehousing);
+
+        // Tính lại fitness
+        double newFitness = evaluateFitness(solution, warehousing);
+        solution.setFitness(newFitness);
+
+        int activeRobots = countActiveRobots(solution);
+        System.out.println("  ✅ Robot hoạt động cuối cùng: " + activeRobots + "/" + solution.getRobots().size());
+    }
+
+    /**
+     * Đặt vị trí cho tất cả robot
+     */
+    private void setRobotPositions(Solution solution) {
+        for (Robot robot : solution.getRobots()) {
+            robot.setCurrentPosition(robot.getStartPosition().copy());
+        }
+        if (!solution.getRobots().isEmpty()) {
+            DistanceCalculator.setCurrentRobotPosition(solution.getRobots().getFirst().getStartPosition());
         }
     }
 
     /**
      * Tối ưu hóa thứ tự các mặt hàng trong tất cả các tuyến đường robot
-     * @param solution Giải pháp cần tối ưu hóa
-     * @param warehousing Kho hàng
      */
     private void optimizeRouteOrders(Solution solution, ArrayList<Merchandise> warehousing) {
         for (int i = 0; i < solution.getRobotRoutes().size(); i++) {
             if (!solution.getRobotRoutes().get(i).isEmpty()) {
-                // Đặt vị trí hiện tại của robot về vị trí xuất phát
                 Robot robot = solution.getRobots().get(i);
                 robot.setCurrentPosition(robot.getStartPosition().copy());
                 DistanceCalculator.setCurrentRobotPosition(robot.getStartPosition());
-
-                // Tối ưu thứ tự bằng phương pháp người láng giềng gần nhất
                 solution.optimizeRouteOrder(i, warehousing);
             }
         }
 
-        // Cập nhật lại fitness
         double newFitness = evaluateFitness(solution, warehousing);
         solution.setFitness(newFitness);
     }
 
     /**
-     * Cập nhật vận tốc và vị trí cho một hạt
-     * @param particle Hạt cần cập nhật
-     * @param warehousing Kho hàng
+     * Cập nhật vận tốc và vị trí cho một hạt - Tối ưu cho tất cả robot
      */
     private void updateVelocityAndPosition(Particle particle, ArrayList<Merchandise> warehousing) {
         Solution currentSolution = particle.getSolution();
@@ -219,50 +489,37 @@ public class PSO {
             newRoutes.add(newRoute);
         }
 
-        // Cho mỗi tuyến đường của robot trong giải pháp
+        // Áp dụng các phép toán PSO với focus vào việc sử dụng tất cả robot
         for (int i = 0; i < newRoutes.size(); i++) {
             ArrayList<Merchandise> currentRoute = newRoutes.get(i);
 
-            // Áp dụng các phép toán PSO để điều chỉnh tuyến đường
             // Với xác suất dựa trên w, giữ một số mặt hàng ở vị trí hiện tại
             for (int j = 0; j < currentRoute.size(); j++) {
                 if (random.nextDouble() > w) {
-                    // Với xác suất dựa trên c1, kết hợp thông tin từ vị trí tốt nhất cá nhân
+                    // Kết hợp thông tin từ personal best
                     if (random.nextDouble() < c1 && i < personalBest.getRobotRoutes().size()) {
                         ArrayList<Merchandise> personalBestRoute = personalBest.getRobotRoutes().get(i);
                         if (!personalBestRoute.isEmpty()) {
-                            // Lấy một mặt hàng ngẫu nhiên từ vị trí tốt nhất cá nhân
                             int randomIndex = random.nextInt(personalBestRoute.size());
                             Merchandise itemFromPersonalBest = personalBestRoute.get(randomIndex);
 
                             if (!containsMerchandise(currentRoute, itemFromPersonalBest)) {
-                                // Chèn mặt hàng vào vị trí ngẫu nhiên
                                 int insertPos = random.nextInt(currentRoute.size() + 1);
-                                if (insertPos < currentRoute.size()) {
-                                    currentRoute.add(insertPos, itemFromPersonalBest);
-                                } else {
-                                    currentRoute.add(itemFromPersonalBest);
-                                }
+                                currentRoute.add(insertPos, itemFromPersonalBest);
                             }
                         }
                     }
 
-                    // Với xác suất dựa trên c2, kết hợp thông tin từ vị trí tốt nhất toàn cục
+                    // Kết hợp thông tin từ global best
                     if (random.nextDouble() < c2 && i < globalBestSolution.getRobotRoutes().size()) {
                         ArrayList<Merchandise> globalBestRoute = globalBestSolution.getRobotRoutes().get(i);
                         if (!globalBestRoute.isEmpty()) {
-                            // Lấy một mặt hàng ngẫu nhiên từ vị trí tốt nhất toàn cục
                             int randomIndex = random.nextInt(globalBestRoute.size());
                             Merchandise itemFromGlobalBest = globalBestRoute.get(randomIndex);
 
                             if (!containsMerchandise(currentRoute, itemFromGlobalBest)) {
-                                // Chèn mặt hàng vào vị trí ngẫu nhiên
                                 int insertPos = random.nextInt(currentRoute.size() + 1);
-                                if (insertPos < currentRoute.size()) {
-                                    currentRoute.add(insertPos, itemFromGlobalBest);
-                                } else {
-                                    currentRoute.add(itemFromGlobalBest);
-                                }
+                                currentRoute.add(insertPos, itemFromGlobalBest);
                             }
                         }
                     }
@@ -281,19 +538,16 @@ public class PSO {
         // Đảm bảo tất cả các mặt hàng yêu cầu đều được phân bổ
         ensureAllItemsAllocated(currentSolution, globalBestSolution.getAllRequiredItems());
 
-        // Tối ưu hóa thứ tự các mặt hàng trong các tuyến đường sau khi cập nhật
-        // Chỉ tối ưu thỉnh thoảng để tăng hiệu suất
+        // Đảm bảo tất cả robot hoạt động
+        ensureAllRobotsActiveInSolution(currentSolution);
+
+        // Tối ưu hóa thỉnh thoảng
         if (random.nextDouble() < 0.3) {
             optimizeRouteOrders(currentSolution, warehousing);
         }
     }
 
-    /**
-     * Kiểm tra xem danh sách đã chứa mặt hàng tương tự chưa
-     * @param list Danh sách cần kiểm tra
-     * @param item Mặt hàng cần tìm
-     * @return true nếu đã có mặt hàng tương tự, false nếu chưa
-     */
+    // Các phương thức utility - giữ nguyên từ code gốc
     private boolean containsMerchandise(ArrayList<Merchandise> list, Merchandise item) {
         for (Merchandise m : list) {
             if (m.getName().equals(item.getName()) && m.getQuantity() == item.getQuantity()) {
@@ -303,31 +557,19 @@ public class PSO {
         return false;
     }
 
-    /**
-     * Đảm bảo ràng buộc về sức chứa
-     * @param route Tuyến đường cần kiểm tra
-     * @param capacity Sức chứa của robot
-     */
     private void enforceCapacityConstraints(ArrayList<Merchandise> route, int capacity) {
-        // Thực thi đơn giản: xóa các mặt hàng từ cuối nếu vượt quá sức chứa
         int totalQuantity = 0;
         for (Merchandise item : route) {
             totalQuantity += item.getQuantity();
         }
 
         while (totalQuantity > capacity && !route.isEmpty()) {
-            Merchandise removedItem = route.remove(route.size() - 1);
+            Merchandise removedItem = route.removeLast();
             totalQuantity -= removedItem.getQuantity();
         }
     }
 
-    /**
-     * Đảm bảo tất cả các mặt hàng yêu cầu đều được phân bổ
-     * @param solution Giải pháp cần kiểm tra
-     * @param allRequiredItems Danh sách tất cả các mặt hàng yêu cầu
-     */
     private void ensureAllItemsAllocated(Solution solution, ArrayList<Merchandise> allRequiredItems) {
-        // Kiểm tra mặt hàng nào đang thiếu trong giải pháp hiện tại
         ArrayList<Merchandise> allocatedItems = new ArrayList<>();
         for (ArrayList<Merchandise> route : solution.getRobotRoutes()) {
             allocatedItems.addAll(route);
@@ -348,18 +590,14 @@ public class PSO {
             }
         }
 
-        // Phân bổ các mặt hàng còn thiếu cho robot có sức chứa còn trống
+        // Phân bổ các mặt hàng còn thiếu
         for (Merchandise missing : missingItems) {
             boolean allocated = false;
             for (int i = 0; i < solution.getRobots().size(); i++) {
                 Robot robot = solution.getRobots().get(i);
                 ArrayList<Merchandise> route = solution.getRobotRoutes().get(i);
 
-                int currentLoad = 0;
-                for (Merchandise item : route) {
-                    currentLoad += item.getQuantity();
-                }
-
+                int currentLoad = calculateRobotLoad(solution, i);
                 if (currentLoad + missing.getQuantity() <= robot.capacity) {
                     route.add(missing);
                     allocated = true;
@@ -367,48 +605,15 @@ public class PSO {
                 }
             }
 
-            // Nếu tất cả robot đều đã đạt sức chứa tối đa, thử tạo không gian bằng cách xóa các mặt hàng ít quan trọng hơn
             if (!allocated) {
-                // Tìm robot có mặt hàng ít quan trọng nhất
-                int robotIndex = findRobotWithLeastImportantItem(solution);
-                if (robotIndex >= 0) {
-                    ArrayList<Merchandise> route = solution.getRobotRoutes().get(robotIndex);
-                    // Xóa mặt hàng ít quan trọng nhất
-                    if (!route.isEmpty()) {
-                        route.remove(route.size() - 1);
-                        // Thêm mặt hàng còn thiếu
-                        route.add(missing);
-                    }
-                }
+                int leastLoadedRobot = findLeastLoadedRobot(solution);
+                solution.getRobotRoutes().get(leastLoadedRobot).add(missing);
             }
         }
-    }
-
-    /**
-     * Tìm robot có mặt hàng ít quan trọng nhất
-     * @param solution Giải pháp chứa các tuyến đường robot
-     * @return Chỉ số của robot
-     */
-    private int findRobotWithLeastImportantItem(Solution solution) {
-        int maxItems = -1;
-        int robotIndex = -1;
-
-        for (int i = 0; i < solution.getRobotRoutes().size(); i++) {
-            ArrayList<Merchandise> route = solution.getRobotRoutes().get(i);
-            if (!route.isEmpty() && route.size() > maxItems) {
-                maxItems = route.size();
-                robotIndex = i;
-            }
-        }
-
-        return robotIndex;
     }
 
     /**
      * Đánh giá độ thích nghi (chi phí quãng đường) của một giải pháp
-     * @param solution Giải pháp cần đánh giá
-     * @param warehousing Kho hàng
-     * @return Tổng chi phí quãng đường
      */
     private double evaluateFitness(Solution solution, ArrayList<Merchandise> warehousing) {
         double totalDistance = 0;
@@ -420,22 +625,17 @@ public class PSO {
             Robot robot = solution.getRobots().get(i);
             Position startPosition = robot.getStartPosition();
 
-            // Đặt vị trí hiện tại của robot về vị trí xuất phát
             robot.setCurrentPosition(startPosition.copy());
             DistanceCalculator.setCurrentRobotPosition(startPosition);
 
             for (Merchandise merchandise : route) {
-                // Tìm mặt hàng trong kho
                 Merchandise warehouseItem = findMerchandiseInWarehouse(merchandise, warehousing);
                 if (warehouseItem != null) {
-                    // Tính khoảng cách từ vị trí hiện tại đến mặt hàng này
                     float distance = DistanceCalculator.calculateDistance(
                             robot.getCurrentPosition(),
                             warehouseItem.getPosition()
                     );
                     totalDistance += distance;
-
-                    // Lấy vị trí hiện tại từ DistanceCalculator sau khi tính khoảng cách
                     robot.setCurrentPosition(DistanceCalculator.getCurrentRobotPosition());
                 }
             }
@@ -453,9 +653,6 @@ public class PSO {
 
     /**
      * Tìm mặt hàng trong kho dựa trên tên
-     * @param merchandise Mặt hàng cần tìm
-     * @param warehousing Kho hàng
-     * @return Mặt hàng tìm thấy hoặc null nếu không tìm thấy
      */
     private Merchandise findMerchandiseInWarehouse(Merchandise merchandise, ArrayList<Merchandise> warehousing) {
         for (Merchandise item : warehousing) {

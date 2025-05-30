@@ -1,0 +1,210 @@
+8 2 10 12 5 78
+MAP_START
+0 0 0 0 0 0 0 0 0 0 0 0
+0 1 1 1 1 1 1 1 1 1 1 0
+0 1 1 1 1 1 1 1 1 1 1 0
+0 0 0 0 0 0 0 0 0 0 0 0
+0 1 1 1 1 1 1 1 1 1 1 0
+0 1 1 1 1 1 1 1 1 1 1 0
+0 0 0 0 0 0 0 0 0 0 0 0
+0 1 1 1 1 1 1 1 1 1 1 0
+0 1 1 1 1 1 1 1 1 1 1 0
+0 0 0 0 0 0 0 0 0 0 0 0
+0 1 1 1 1 1 1 1 1 1 1 0
+0 1 1 1 1 1 1 1 1 1 1 0
+0 0 0 0 0 0 0 0 0 0 0 0
+MAP_END
+WAREHOUSE_START
+Laptop 8 1 1 1
+Laptop 12 1 1 2
+Laptop 5 1 1 3
+Desktop 10 1 1 4
+Desktop 8 1 1 5
+Monitor 15 1 1 6
+Monitor 10 1 1 7
+Monitor 8 1 1 8
+Smartphone 20 1 1 9
+Smartphone 15 1 1 10
+Tablet 12 1 1 11
+Keyboard 25 1 2 1
+Keyboard 18 1 2 2
+Mouse 30 1 2 3
+Mouse 22 1 2 4
+Headphones 16 1 2 5
+Headphones 12 1 2 6
+Speaker 8 1 2 7
+Speaker 6 1 2 8
+Webcam 14 1 2 9
+Webcam 10 1 2 10
+Router 7 1 2 11
+Printer 12 2 1 1
+Printer 8 2 1 2
+Scanner 6 2 1 3
+Scanner 4 2 1 4
+Camera 9 2 1 5
+Camera 7 2 1 6
+Hard_Drive 20 2 1 7
+Hard_Drive 15 2 1 8
+SSD 18 2 1 9
+SSD 12 2 1 10
+RAM 25 2 1 11
+Motherboard 5 2 2 1
+Motherboard 3 2 2 2
+CPU 8 2 2 3
+CPU 6 2 2 4
+GPU 4 2 2 5
+GPU 3 2 2 6
+Power_Supply 7 2 2 7
+Power_Supply 5 2 2 8
+Cable 35 2 2 9
+Cable 28 2 2 10
+Adapter 22 2 2 11
+Phone_Case 40 3 1 1
+Phone_Case 35 3 1 2
+Screen_Protector 50 3 1 3
+Screen_Protector 45 3 1 4
+Charger 30 3 1 5
+Charger 25 3 1 6
+USB_Drive 28 3 1 7
+USB_Drive 22 3 1 8
+Memory_Card 24 3 1 9
+Memory_Card 20 3 1 10
+Battery 18 3 1 11
+Microphone 12 3 2 1
+Microphone 10 3 2 2
+Smart_Watch 8 3 2 3
+Smart_Watch 6 3 2 4
+Fitness_Tracker 15 3 2 5
+Fitness_Tracker 12 3 2 6
+VR_Headset 4 3 2 7
+VR_Headset 3 3 2 8
+Game_Controller 16 3 2 9
+Game_Controller 14 3 2 10
+Drone 5 3 2 11
+Projector 6 4 1 1
+Projector 4 4 1 2
+Smart_TV 3 4 1 3
+Smart_TV 2 4 1 4
+Soundbar 8 4 1 5
+Soundbar 6 4 1 6
+Home_Theater 4 4 1 7
+Home_Theater 3 4 1 8
+Security_Camera 12 4 1 9
+Security_Camera 10 4 1 10
+Smart_Lock 8 4 1 11
+Smart_Bulb 25 4 2 1
+Smart_Bulb 20 4 2 2
+Smart_Switch 18 4 2 3
+Smart_Switch 15 4 2 4
+Smart_Plug 22 4 2 5
+Smart_Plug 18 4 2 6
+Thermostat 6 4 2 7
+Thermostat 5 4 2 8
+Smoke_Detector 14 4 2 9
+Smoke_Detector 12 4 2 10
+Air_Purifier 7 4 2 11
+Coffee_Machine 5 5 1 1
+Coffee_Machine 4 5 1 2
+Blender 8 5 1 3
+Blender 6 5 1 4
+Microwave 3 5 1 5
+Microwave 2 5 1 6
+Toaster 10 5 1 7
+Toaster 8 5 1 8
+Rice_Cooker 12 5 1 9
+Rice_Cooker 10 5 1 10
+Vacuum_Cleaner 6 5 1 11
+Air_Fryer 8 5 2 1
+Air_Fryer 6 5 2 2
+Food_Processor 5 5 2 3
+Food_Processor 4 5 2 4
+Electric_Kettle 15 5 2 5
+Electric_Kettle 12 5 2 6
+Juicer 9 5 2 7
+Juicer 7 5 2 8
+Stand_Mixer 4 5 2 9
+Stand_Mixer 3 5 2 10
+Dishwasher 2 5 2 11
+Washing_Machine 2 6 1 1
+Washing_Machine 1 6 1 2
+Dryer 2 6 1 3
+Dryer 1 6 1 4
+Refrigerator 1 6 1 5
+Refrigerator 1 6 1 6
+Freezer 2 6 1 7
+Freezer 1 6 1 8
+Air_Conditioner 3 6 1 9
+Air_Conditioner 2 6 1 10
+Heater 4 6 1 11
+Fan 12 6 2 1
+Fan 10 6 2 2
+Humidifier 8 6 2 3
+Humidifier 6 6 2 4
+Dehumidifier 5 6 2 5
+Dehumidifier 4 6 2 6
+Water_Filter 10 6 2 7
+Water_Filter 8 6 2 8
+Iron 15 6 2 9
+Iron 12 6 2 10
+Hair_Dryer 18 6 2 11
+Electric_Toothbrush 20 7 1 1
+Electric_Toothbrush 18 7 1 2
+Electric_Shaver 16 7 1 3
+Electric_Shaver 14 7 1 4
+Hair_Straightener 12 7 1 5
+Hair_Straightener 10 7 1 6
+Curling_Iron 14 7 1 7
+Curling_Iron 12 7 1 8
+Massage_Gun 8 7 1 9
+Massage_Gun 6 7 1 10
+Scale 16 7 1 11
+Blood_Pressure_Monitor 10 7 2 1
+Blood_Pressure_Monitor 8 7 2 2
+Thermometer 25 7 2 3
+Thermometer 22 7 2 4
+Pulse_Oximeter 18 7 2 5
+Pulse_Oximeter 15 7 2 6
+Nebulizer 6 7 2 7
+Nebulizer 5 7 2 8
+TENS_Unit 8 7 2 9
+TENS_Unit 6 7 2 10
+Heating_Pad 12 7 2 11
+Treadmill 1 8 1 1
+Exercise_Bike 1 8 1 2
+Elliptical 1 8 1 3
+Weight_Set 3 8 1 4
+Weight_Set 2 8 1 5
+Yoga_Mat 20 8 1 6
+Yoga_Mat 18 8 1 7
+Resistance_Bands 25 8 1 8
+Resistance_Bands 22 8 1 9
+Jump_Rope 30 8 1 10
+Jump_Rope 28 8 1 11
+Foam_Roller 15 8 2 1
+Foam_Roller 12 8 2 2
+Exercise_Ball 10 8 2 3
+Exercise_Ball 8 8 2 4
+Kettlebell 12 8 2 5
+Kettlebell 10 8 2 6
+Dumbbell 18 8 2 7
+Dumbbell 15 8 2 8
+Protein_Powder 8 8 2 9
+Protein_Powder 6 8 2 10
+Supplement 14 8 2 11
+WAREHOUSE_END
+REQUIRE_START
+Laptop 15
+Monitor 20
+Smartphone 25
+Mouse 35
+Keyboard 30
+Headphones 20
+Camera 12
+Printer 15
+Hard_Drive 25
+Cable 40
+Charger 35
+Phone_Case 50
+USB_Drive 30
+Smart_Watch 10
+REQUIRE_END
