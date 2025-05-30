@@ -118,8 +118,12 @@ public class Individual {
      * @param warehousing Kho hàng
      * @return Tổng chi phí quãng đường
      */
+    /**
+     * Phương thức greedy được cải thiện để sử dụng TẤT CẢ robot có sẵn
+     * Thêm vào class Individual.java
+     */
     public float greedy(Position positionCurrent, ArrayList<Merchandise> warehousing) {
-        System.out.println("\n========= THUẬT TOÁN GREEDY =========");
+        System.out.println("\n========= THUẬT TOÁN GREEDY (CẢI THIỆN) =========");
         System.out.println("Yêu cầu lấy " + require.size() + " món hàng");
         for (Merchandise item : require) {
             System.out.println("- " + item.getName() + ": " + item.getQuantity() + " đơn vị");
@@ -131,10 +135,6 @@ public class Individual {
         // Đặt vị trí xuất phát cho tất cả robot
         for (Robot robot : robots) {
             robot.setStartPosition(positionCurrent.copy());
-        }
-
-        // Xóa sạch giỏ hàng hiện tại
-        for (Robot robot : robots) {
             robot.shoppingCart.clear();
         }
 
@@ -144,73 +144,369 @@ public class Individual {
             return 0;
         }
 
-        // Phân bổ đơn giản các mặt hàng cho robot
-        for (int i = 0; i < require.size(); i++) {
-            int robotIndex = i % robots.size(); // An toàn vì đã kiểm tra robots.size() > 0
-            Robot robot = robots.get(robotIndex);
+        // ===== CHIẾN LƯỢC GREEDY CẢI THIỆN =====
+        // 1. Tạo danh sách tất cả items cần lấy với vị trí từ kho
+        ArrayList<MerchandiseWithDistance> itemsWithDistance = new ArrayList<>();
 
-            // Kiểm tra sức chứa
-            if (robot.canPickUp(require.get(i))) {
-                robot.shoppingCart.add(require.get(i));
-            } else {
-                // Nếu robot hiện tại đã đầy, tìm robot khác có thể chứa
-                boolean allocated = false;
-                for (int j = 0; j < robots.size(); j++) {
-                    if (j != robotIndex && robots.get(j).canPickUp(require.get(i))) {
-                        robots.get(j).shoppingCart.add(require.get(i));
-                        allocated = true;
-                        break;
-                    }
-                }
+        for (Merchandise reqItem : require) {
+            Merchandise warehouseItem = findInWarehouse(reqItem, warehousing);
+            if (warehouseItem != null) {
+                // Tính khoảng cách từ counter đến item này
+                DistanceCalculator.setCurrentRobotPosition(positionCurrent);
+                float distance = calculateDistance(positionCurrent, warehouseItem.getPosition());
 
-                if (!allocated) {
-                    System.out.println("Cảnh báo: Không thể phân bổ mặt hàng " + require.get(i).getName() +
-                            " cho bất kỳ robot nào do hạn chế về sức chứa");
-                }
+                itemsWithDistance.add(new MerchandiseWithDistance(
+                        reqItem, warehouseItem.getPosition(), distance));
             }
         }
 
-        // Tính tổng quãng đường
-        float totalDistance = 0;
+        // 2. Sắp xếp items theo tiêu chí greedy (gần nhất trước)
+        itemsWithDistance.sort((a, b) -> Float.compare(a.distance, b.distance));
 
-        // In chi tiết đường đi cho mỗi robot
-        System.out.println("\n========= KẾT QUẢ GREEDY =========");
+        System.out.println("\n🎯 CHIẾN LƯỢC GREEDY:");
+        System.out.println("- Ưu tiên mặt hàng gần nhất");
+        System.out.println("- Phân bổ đều cho tất cả robot");
+        System.out.println("- Cân bằng tải trọng");
+
+        // 3. Phân bổ thông minh cho robot
+        distributeItemsGreedy(itemsWithDistance);
+
+        // 4. Tối ưu hóa thứ tự đường đi cho từng robot
+        optimizeRobotRoutes(warehousing, positionCurrent);
+
+        // 5. Tính tổng quãng đường
+        float totalDistance = calculateTotalDistance(warehousing, positionCurrent);
+
+        // 6. In kết quả chi tiết
+        printGreedyResults(positionCurrent, warehousing, totalDistance);
+
+        return totalDistance;
+    }
+
+    /**
+     * Phân bổ items cho robot theo chiến lược greedy cải thiện
+     */
+    private void distributeItemsGreedy(ArrayList<MerchandiseWithDistance> itemsWithDistance) {
+        System.out.println("\n📊 PHÂN BỔ MẶT HÀNG:");
+
+        for (MerchandiseWithDistance itemWithDist : itemsWithDistance) {
+            Merchandise item = itemWithDist.merchandise;
+
+            // Tìm robot tốt nhất để gán item này
+            Robot bestRobot = findBestRobotForItem(item, itemWithDist.position);
+
+            if (bestRobot != null) {
+                bestRobot.shoppingCart.add(item);
+                System.out.println("✓ " + item.getName() + " (" + item.getQuantity() +
+                        ") → Robot " + bestRobot.nameRobot +
+                        " (tải: " + bestRobot.getCurrentLoad() + "/" + bestRobot.capacity + ")");
+            } else {
+                // Nếu không tìm được robot phù hợp, gán cho robot có tải trọng ít nhất
+                Robot leastLoadedRobot = findLeastLoadedRobot();
+                leastLoadedRobot.shoppingCart.add(item);
+                System.out.println("⚠️ " + item.getName() + " (" + item.getQuantity() +
+                        ") → Robot " + leastLoadedRobot.nameRobot +
+                        " (vượt sức chứa tạm thời)");
+            }
+        }
+    }
+
+    /**
+     * Tìm robot tốt nhất để gán một item
+     * Tiêu chí: robot có thể chứa + gần với item + cân bằng tải
+     */
+    private Robot findBestRobotForItem(Merchandise item, Position itemPosition) {
+        Robot bestRobot = null;
+        double bestScore = Double.MAX_VALUE;
+
         for (Robot robot : robots) {
-            float robotDistance = 0;
-            Position currentPos = positionCurrent;
+            // Kiểm tra xem robot có thể chứa item không
+            if (!robot.canPickUp(item)) {
+                continue;
+            }
 
-            System.out.println("\nRobot " + robot.nameRobot + ":");
-            System.out.println("- Bắt đầu từ Counter " + positionCurrent);
+            // Tính điểm cho robot này
+            double score = calculateRobotScore(robot, item, itemPosition);
 
-            for (Merchandise item : robot.shoppingCart) {
-                // Tìm vị trí trong kho
+            if (score < bestScore) {
+                bestScore = score;
+                bestRobot = robot;
+            }
+        }
+
+        return bestRobot;
+    }
+
+    /**
+     * Tính điểm cho robot (càng thấp càng tốt)
+     * Kết hợp: khoảng cách + cân bằng tải + số items
+     */
+    private double calculateRobotScore(Robot robot, Merchandise item, Position itemPosition) {
+        // 1. Khoảng cách từ vị trí hiện tại của robot đến item
+        Position robotCurrentPos = robot.shoppingCart.isEmpty() ?
+                robot.getStartPosition() :
+                getLastItemPosition(robot);
+
+        DistanceCalculator.setCurrentRobotPosition(robotCurrentPos);
+        float distance = calculateDistance(robotCurrentPos, itemPosition);
+
+        // 2. Tải trọng hiện tại (để cân bằng)
+        int currentLoad = robot.getCurrentLoad();
+
+        // 3. Số items hiện tại (để phân bổ đều)
+        int itemCount = robot.shoppingCart.size();
+
+        // Công thức tính điểm (có thể điều chỉnh trọng số)
+        double distanceWeight = 1.0;      // Ưu tiên khoảng cách
+        double loadWeight = 0.3;          // Cân bằng tải
+        double itemCountWeight = 0.2;     // Phân bổ đều số items
+
+        return distance * distanceWeight +
+                currentLoad * loadWeight +
+                itemCount * itemCountWeight;
+    }
+
+    /**
+     * Lấy vị trí của item cuối cùng trong giỏ hàng robot
+     */
+    private Position getLastItemPosition(Robot robot) {
+        if (robot.shoppingCart.isEmpty()) {
+            return robot.getStartPosition();
+        }
+
+        Merchandise lastItem = robot.shoppingCart.get(robot.shoppingCart.size() - 1);
+        // Tìm vị trí trong kho
+        for (Merchandise warehouseItem : Params.WAREHOUSE) {
+            if (warehouseItem.getName().equals(lastItem.getName())) {
+                return warehouseItem.getPosition();
+            }
+        }
+
+        return robot.getStartPosition();
+    }
+
+    /**
+     * Tìm robot có tải trọng thấp nhất
+     */
+    private Robot findLeastLoadedRobot() {
+        Robot leastLoaded = robots.get(0);
+        int minLoad = leastLoaded.getCurrentLoad();
+
+        for (Robot robot : robots) {
+            int load = robot.getCurrentLoad();
+            if (load < minLoad) {
+                minLoad = load;
+                leastLoaded = robot;
+            }
+        }
+
+        return leastLoaded;
+    }
+
+    /**
+     * Tối ưu hóa thứ tự đường đi cho từng robot (Nearest Neighbor)
+     */
+    private void optimizeRobotRoutes(ArrayList<Merchandise> warehousing, Position startPosition) {
+        System.out.println("\n🔧 TỐI ƯU HÓA ĐƯỜNG ĐI:");
+
+        for (Robot robot : robots) {
+            if (robot.shoppingCart.isEmpty()) {
+                continue;
+            }
+
+            System.out.println("Robot " + robot.nameRobot + " (" + robot.shoppingCart.size() + " items):");
+
+            // Áp dụng Nearest Neighbor Algorithm
+            ArrayList<Merchandise> optimizedRoute = nearestNeighborTSP(robot.shoppingCart,
+                    startPosition, warehousing);
+            robot.shoppingCart.clear();
+            robot.shoppingCart.addAll(optimizedRoute);
+
+            // In thứ tự đã tối ưu
+            for (int i = 0; i < optimizedRoute.size(); i++) {
+                System.out.println("  " + (i+1) + ". " + optimizedRoute.get(i).getName());
+            }
+        }
+    }
+
+    /**
+     * Thuật toán Nearest Neighbor cho TSP
+     */
+    private ArrayList<Merchandise> nearestNeighborTSP(ArrayList<Merchandise> items,
+                                                      Position startPosition,
+                                                      ArrayList<Merchandise> warehousing) {
+        if (items.size() <= 1) {
+            return new ArrayList<>(items);
+        }
+
+        ArrayList<Merchandise> remaining = new ArrayList<>(items);
+        ArrayList<Merchandise> route = new ArrayList<>();
+        Position currentPos = startPosition;
+
+        DistanceCalculator.setCurrentRobotPosition(currentPos);
+
+        while (!remaining.isEmpty()) {
+            Merchandise nearest = null;
+            float minDistance = Float.MAX_VALUE;
+
+            // Tìm item gần nhất với vị trí hiện tại
+            for (Merchandise item : remaining) {
                 Merchandise warehouseItem = findInWarehouse(item, warehousing);
                 if (warehouseItem != null) {
-                    // Tính khoảng cách từ vị trí hiện tại đến mặt hàng
                     float distance = calculateDistance(currentPos, warehouseItem.getPosition());
-                    robotDistance += distance;
-
-                    System.out.println("- Đi đến " + warehouseItem.getName() + " tại " +
-                            warehouseItem.getPosition() + " (+" + distance + " đơn vị)");
-
-                    // Cập nhật vị trí hiện tại
-                    currentPos = warehouseItem.getPosition();
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        nearest = item;
+                    }
                 }
             }
 
-            // Quay về counter
-            float returnDistance = calculateDistance(currentPos, positionCurrent);
+            if (nearest != null) {
+                route.add(nearest);
+                remaining.remove(nearest);
+
+                // Cập nhật vị trí hiện tại
+                Merchandise warehouseItem = findInWarehouse(nearest, warehousing);
+                if (warehouseItem != null) {
+                    DistanceCalculator.calculateDistance(currentPos, warehouseItem.getPosition());
+                    currentPos = DistanceCalculator.getCurrentRobotPosition();
+                }
+            } else {
+                break;
+            }
+        }
+
+        return route;
+    }
+
+    /**
+     * Tính tổng quãng đường của tất cả robot
+     */
+    private float calculateTotalDistance(ArrayList<Merchandise> warehousing, Position startPosition) {
+        float totalDistance = 0;
+
+        for (Robot robot : robots) {
+            if (robot.shoppingCart.isEmpty()) {
+                continue;
+            }
+
+            float robotDistance = 0;
+            Position currentPos = startPosition;
+            DistanceCalculator.setCurrentRobotPosition(currentPos);
+
+            // Đi qua tất cả items trong giỏ hàng
+            for (Merchandise item : robot.shoppingCart) {
+                Merchandise warehouseItem = findInWarehouse(item, warehousing);
+                if (warehouseItem != null) {
+                    float distance = calculateDistance(currentPos, warehouseItem.getPosition());
+                    robotDistance += distance;
+                    currentPos = DistanceCalculator.getCurrentRobotPosition();
+                }
+            }
+
+            // Quay về điểm xuất phát
+            float returnDistance = calculateDistance(currentPos, startPosition);
             robotDistance += returnDistance;
-            System.out.println("- Quay về Counter " + positionCurrent + " (+" + returnDistance + " đơn vị)");
-            System.out.println("=> Tổng quãng đường của Robot " + robot.nameRobot + ": " + robotDistance);
 
             totalDistance += robotDistance;
         }
 
-        System.out.println("\nTổng quãng đường: " + totalDistance);
         return totalDistance;
     }
 
+    /**
+     * In kết quả chi tiết
+     */
+    private void printGreedyResults(Position startPosition, ArrayList<Merchandise> warehousing,
+                                    float totalDistance) {
+        System.out.println("\n========= KẾT QUẢ GREEDY CẢI THIỆN =========");
+
+        int activeRobots = 0;
+        int totalItems = 0;
+        int totalLoad = 0;
+
+        for (Robot robot : robots) {
+            if (!robot.shoppingCart.isEmpty()) {
+                activeRobots++;
+            }
+            totalItems += robot.shoppingCart.size();
+            totalLoad += robot.getCurrentLoad();
+        }
+
+        System.out.println("📊 Tổng quan:");
+        System.out.println("- Tổng quãng đường: " + totalDistance);
+        System.out.println("- Robot hoạt động: " + activeRobots + "/" + robots.size());
+        System.out.println("- Tổng items: " + totalItems);
+        System.out.println("- Tổng tải trọng: " + totalLoad + "/" + (robots.size() * Params.CAPACITY));
+
+        // Chi tiết từng robot
+        System.out.println("\n🤖 Chi tiết robot:");
+        for (Robot robot : robots) {
+            float robotDistance = 0;
+            Position currentPos = startPosition;
+            DistanceCalculator.setCurrentRobotPosition(currentPos);
+
+            System.out.println("\nRobot " + robot.nameRobot + ":");
+            System.out.println("- Tải trọng: " + robot.getCurrentLoad() + "/" + robot.capacity);
+            System.out.println("- Số items: " + robot.shoppingCart.size());
+
+            if (!robot.shoppingCart.isEmpty()) {
+                System.out.println("- Lộ trình:");
+                System.out.println("  0. Bắt đầu từ Counter " + startPosition);
+
+                for (int i = 0; i < robot.shoppingCart.size(); i++) {
+                    Merchandise item = robot.shoppingCart.get(i);
+                    Merchandise warehouseItem = findInWarehouse(item, warehousing);
+                    if (warehouseItem != null) {
+                        float distance = calculateDistance(currentPos, warehouseItem.getPosition());
+                        robotDistance += distance;
+                        currentPos = DistanceCalculator.getCurrentRobotPosition();
+
+                        System.out.println("  " + (i+1) + ". " + item.getName() +
+                                " tại " + warehouseItem.getPosition() +
+                                " (+" + distance + " đơn vị)");
+                    }
+                }
+
+                float returnDistance = calculateDistance(currentPos, startPosition);
+                robotDistance += returnDistance;
+                System.out.println("  " + (robot.shoppingCart.size() + 1) +
+                        ". Quay về Counter (+" + returnDistance + " đơn vị)");
+                System.out.println("=> Tổng quãng đường Robot " + robot.nameRobot + ": " + robotDistance);
+            } else {
+                System.out.println("- Không có nhiệm vụ");
+            }
+        }
+
+        // Phân tích hiệu quả
+        System.out.println("\n📈 Phân tích:");
+        if (activeRobots == robots.size()) {
+            System.out.println("✅ Sử dụng tất cả robot");
+        } else {
+            System.out.println("⚠️ Chưa sử dụng hết robot (" + (robots.size() - activeRobots) + " robot rảnh)");
+        }
+
+        double avgLoad = activeRobots > 0 ? (double)totalLoad / activeRobots : 0;
+        System.out.println("📊 Tải trọng TB/robot hoạt động: " + String.format("%.1f", avgLoad));
+
+        double utilization = (double)totalLoad / (robots.size() * Params.CAPACITY) * 100;
+        System.out.println("📊 Tỷ lệ sử dụng sức chứa: " + String.format("%.1f%%", utilization));
+    }
+
+    /**
+     * Inner class để lưu merchandise với khoảng cách
+     */
+    private static class MerchandiseWithDistance {
+        Merchandise merchandise;
+        Position position;
+        float distance;
+
+        public MerchandiseWithDistance(Merchandise merchandise, Position position, float distance) {
+            this.merchandise = merchandise;
+            this.position = position;
+            this.distance = distance;
+        }
+    }
     /**
      * Tìm mặt hàng trong kho
      * @param item Mặt hàng cần tìm

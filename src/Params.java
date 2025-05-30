@@ -35,7 +35,7 @@ public class Params {
     /**
      * Tham số cho thuật toán VNS
      */
-    static int VNS_MAX_ITERATIONS = 30;
+    static int VNS_MAX_ITERATIONS = 200;
     static int VNS_MAX_NEIGHBORHOODS = 3;
 
     /**
